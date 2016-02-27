@@ -1,2 +1,6 @@
 *~
+*.gcov
+*.gcda
+*.gcno
+test
 libtonedef.so

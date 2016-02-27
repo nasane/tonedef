@@ -2,4 +2,9 @@ language: c
 compiler:
   - clang
   - gcc
-script: make
+before_install:
+  - pip install --user cpp-coveralls
+script:
+  - make && make tests && ./test
+after_success:
+  - coveralls --gcov-options '\-lp'
