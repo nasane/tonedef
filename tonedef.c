@@ -269,10 +269,7 @@ struct note get_exact_note(double freq)
 		return note;
 	}
 
-	/* TODO: fix this */
-	if (-1.0 == (approx_note_freq = get_freq(&note))) {
-		return note;
-	}
+	approx_note_freq = get_freq(&note);
 
 	cents = SEMITONE_INTERVAL_CENTS * SEMITONES_PER_OCTAVE * log2(freq / approx_note_freq);
 	note.cents = cents;
