@@ -3,4 +3,4 @@ tonedef: tonedef.c
 tests: test.c
 	cc -std=c99 -o test test.c libtonedef.so
 clean:
-	rm -rf libtonedef.so test
+	rm -rf libtonedef.so test ./*.gcno ./*.gcov ./*.gcda
