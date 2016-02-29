@@ -21,7 +21,7 @@ int main(int argc, const char *argv[]) {
 			"A",
 			4,
 			0.0,
-			get_semitone_str(exact_note.semitone),
+			get_semitone_str(exact_note.semitone, false),
 			exact_note.octave,
 			exact_note.cents);
 		return 1;
@@ -47,6 +47,14 @@ int main(int argc, const char *argv[]) {
 	}
 
 	if (!test_get_semitone("foo", UNKNOWN_SEMITONE)) {
+		return 1;
+	}
+
+	if (!test_get_semitone("h", UNKNOWN_SEMITONE)) {
+		return 1;
+	}
+
+	if (!test_get_semitone("a+", UNKNOWN_SEMITONE)) {
 		return 1;
 	}
 
@@ -100,33 +108,33 @@ int main(int argc, const char *argv[]) {
 
 	for (int i = 0; i < 13; ++i) {
 
-		printf("test get_semitone_str for semitone %d - %s\n", i, get_semitone_str(i));
+		printf("test get_semitone_str for semitone %d - %s\n", i, get_semitone_str(i, true));
 
-		if (0 == i && 0 != strcmp(get_semitone_str(i), "C")) {
+		if (0 == i && 0 != strcmp(get_semitone_str(i, true), "C")) {
 			return 1;
-		} else if (1 == i && 0 != strcmp(get_semitone_str(i), "Db")) {
+		} else if (1 == i && 0 != strcmp(get_semitone_str(i, false), "C#")) {
 			return 1;
-		} else if (2 == i && 0 != strcmp(get_semitone_str(i), "D")) {
+		} else if (2 == i && 0 != strcmp(get_semitone_str(i, true), "D")) {
 			return 1;
-		} else if (3 == i && 0 != strcmp(get_semitone_str(i), "Eb")) {
+		} else if (3 == i && 0 != strcmp(get_semitone_str(i, false), "D#")) {
 			return 1;
-		} else if (4 == i && 0 != strcmp(get_semitone_str(i), "E")) {
+		} else if (4 == i && 0 != strcmp(get_semitone_str(i, true), "E")) {
 			return 1;
-		} else if (5 == i && 0 != strcmp(get_semitone_str(i), "F")) {
+		} else if (5 == i && 0 != strcmp(get_semitone_str(i, false), "F")) {
 			return 1;
-		} else if (6 == i && 0 != strcmp(get_semitone_str(i), "Gb")) {
+		} else if (6 == i && 0 != strcmp(get_semitone_str(i, true), "Gb")) {
 			return 1;
-		} else if (7 == i && 0 != strcmp(get_semitone_str(i), "G")) {
+		} else if (7 == i && 0 != strcmp(get_semitone_str(i, false), "G")) {
 			return 1;
-		} else if (8 == i && 0 != strcmp(get_semitone_str(i), "Ab")) {
+		} else if (8 == i && 0 != strcmp(get_semitone_str(i, true), "Ab")) {
 			return 1;
-		} else if (9 == i && 0 != strcmp(get_semitone_str(i), "A")) {
+		} else if (9 == i && 0 != strcmp(get_semitone_str(i, false), "A")) {
 			return 1;
-		} else if (10 == i && 0 != strcmp(get_semitone_str(i), "Bb")) {
+		} else if (10 == i && 0 != strcmp(get_semitone_str(i, true), "Bb")) {
 			return 1;
-		} else if (11 == i && 0 != strcmp(get_semitone_str(i), "B")) {
+		} else if (11 == i && 0 != strcmp(get_semitone_str(i, false), "B")) {
 			return 1;
-		} else if (12 == i && NULL != get_semitone_str(i)) {
+		} else if (12 == i && NULL != get_semitone_str(i, true)) {
 			return 1;
 		}
 	}
@@ -162,8 +170,8 @@ static bool test_get_semitone(char *str, enum semitone_t expected)
 {
 	char semitone[5];
 
-	printf("test %s\n", str);
         strcpy(semitone, str);
+	printf("test %s - returns %d\n", str, get_semitone(semitone));
         if (expected != get_semitone(semitone)) {
                 return false;
         }
