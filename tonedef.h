@@ -59,7 +59,9 @@ struct note
 double		get_freq(const struct note * const note);
 struct note	get_approx_note(double freq);
 struct note	get_exact_note(double freq);
-enum semitone_t	get_semitone(char * const semitone);
+enum semitone_t	get_semitone(const char * const semitone);
 char		*get_semitone_str(enum semitone_t semitone, bool prefer_flat);
+enum semitone_t	get_fifth(enum semitone_t semitone);
+enum semitone_t	get_fourth(enum semitone_t semitone);
 
 #endif

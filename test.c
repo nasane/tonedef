@@ -1,142 +1,135 @@
+#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "tonedef.h"
 
-static bool test_get_semitone(char *str, enum semitone_t expected);
-
 int main(int argc, const char *argv[]) {
 
-	struct note exact_note;
-	struct note approx_note;
 	struct note test_note;
 	char *semitone;
 
-	exact_note = get_exact_note(440.0);
-	if (exact_note.semitone != A || exact_note.octave != 4 || exact_note.cents != 0.0) {
+	test_note = get_exact_note(440.0);
+	if (test_note.semitone != A || test_note.octave != 4 || test_note.cents != 0.0) {
 		fprintf(
 			stderr,
 			"expected: %s %d %f, actual: %s %d %f\n",
 			"A",
 			4,
 			0.0,
-			get_semitone_str(exact_note.semitone, false),
-			exact_note.octave,
-			exact_note.cents);
+			get_semitone_str(test_note.semitone, false),
+			test_note.octave,
+			test_note.cents);
 		return 1;
 	}
 
-	approx_note = get_approx_note(15.0);
-	if (approx_note.semitone != UNKNOWN_SEMITONE || approx_note.octave != -1 || approx_note.cents != -255.0) {
+	test_note = get_exact_note(45.21);
+	if (test_note.semitone != Gb || test_note.octave != 1 || fabs(test_note.cents - -39.347641) > 0.00001) {
+		fprintf(
+			stderr,
+			"expected: %s %d %f, actual: %s %d %f\n",
+			"F#",
+			1,
+			-39.347641,
+			get_semitone_str(test_note.semitone, false),
+			test_note.octave,
+			test_note.cents);
+		return 1;
+	}
+
+	test_note = get_exact_note(2016.15);
+	if (test_note.semitone != B || test_note.octave != 6 || fabs(test_note.cents - 35.233059) > 0.00001) {
+		fprintf(
+			stderr,
+			"expected: %s %d %f, actual: %s %d %f\n",
+			"B",
+			6,
+			35.233059,
+			get_semitone_str(test_note.semitone, false),
+			test_note.octave,
+			test_note.cents);
+		return 1;
+	}
+
+	test_note = get_exact_note(207.562);
+	if (test_note.semitone != Ab || test_note.octave != 3 || fabs(test_note.cents - -0.753418) > 0.00001) {
+		fprintf(
+			stderr,
+			"expected: %s %d %f, actual: %s %d %f\n",
+			"G#",
+			3,
+			-0.753418,
+			get_semitone_str(test_note.semitone, false),
+			test_note.octave,
+			test_note.cents);
+		return 1;
+	}
+
+	test_note = get_approx_note(15.0);
+	if (test_note.semitone != UNKNOWN_SEMITONE || test_note.octave != -1 || test_note.cents != -255.0) {
 		fprintf(
 			stderr,
 			"expected: %d %d %f, actual: %d %d %f\n",
 			UNKNOWN_SEMITONE,
 			-1,
 			-255.0,
-			approx_note.semitone,
-			approx_note.octave,
-			approx_note.cents);
+			test_note.semitone,
+			test_note.octave,
+			test_note.cents);
 		return 1;
 	}
 
-	printf("test invalid semitone\n");
 	if (UNKNOWN_SEMITONE != get_semitone(NULL)) {
 		return 1;
 	}
 
-	if (!test_get_semitone("foo", UNKNOWN_SEMITONE)) {
+	if (UNKNOWN_SEMITONE != get_semitone("foo")) {
 		return 1;
 	}
 
-	if (!test_get_semitone("h", UNKNOWN_SEMITONE)) {
+	if (UNKNOWN_SEMITONE != get_semitone("h")) {
 		return 1;
 	}
 
-	if (!test_get_semitone("a+", UNKNOWN_SEMITONE)) {
+	if (UNKNOWN_SEMITONE != get_semitone("a+")) {
 		return 1;
 	}
 
-	if (!test_get_semitone("c", C)) {
+	if (C != get_semitone("c")) {
 		return 1;
 	}
 
-	if (!test_get_semitone("c#", Db)) {
+	if (Gb != get_semitone("f#")) {
 		return 1;
 	}
 
-	if (!test_get_semitone("d", D)) {
+	if (Ab != get_semitone("ab")) {
 		return 1;
 	}
 
-	if (!test_get_semitone("eb", Eb)) {
+	if (B != get_semitone("b")) {
 		return 1;
 	}
 
-	if (!test_get_semitone("e", E)) {
+	if (0 != strcmp(get_semitone_str(2, true), "D")) {
 		return 1;
 	}
 
-	if (!test_get_semitone("f", F)) {
+	if (0 != strcmp(get_semitone_str(6, true), "Gb")) {
 		return 1;
 	}
 
-	if (!test_get_semitone("f#", Gb)) {
+	if (0 != strcmp(get_semitone_str(9, false), "A")) {
 		return 1;
 	}
 
-	if (!test_get_semitone("g", G)) {
+	if (0 != strcmp(get_semitone_str(10, false), "A#")) {
 		return 1;
 	}
 
-	if (!test_get_semitone("ab", Ab)) {
+	if (NULL != get_semitone_str(5555, true)) {
 		return 1;
-	}
-
-	if (!test_get_semitone("a", A)) {
-		return 1;
-	}
-
-	if (!test_get_semitone("a#", Bb)) {
-		return 1;
-	}
-
-	if (!test_get_semitone("b", B)) {
-		return 1;
-	}
-
-	for (int i = 0; i < 13; ++i) {
-
-		printf("test get_semitone_str for semitone %d - %s\n", i, get_semitone_str(i, true));
-
-		if (0 == i && 0 != strcmp(get_semitone_str(i, true), "C")) {
-			return 1;
-		} else if (1 == i && 0 != strcmp(get_semitone_str(i, false), "C#")) {
-			return 1;
-		} else if (2 == i && 0 != strcmp(get_semitone_str(i, true), "D")) {
-			return 1;
-		} else if (3 == i && 0 != strcmp(get_semitone_str(i, false), "D#")) {
-			return 1;
-		} else if (4 == i && 0 != strcmp(get_semitone_str(i, true), "E")) {
-			return 1;
-		} else if (5 == i && 0 != strcmp(get_semitone_str(i, false), "F")) {
-			return 1;
-		} else if (6 == i && 0 != strcmp(get_semitone_str(i, true), "Gb")) {
-			return 1;
-		} else if (7 == i && 0 != strcmp(get_semitone_str(i, false), "G")) {
-			return 1;
-		} else if (8 == i && 0 != strcmp(get_semitone_str(i, true), "Ab")) {
-			return 1;
-		} else if (9 == i && 0 != strcmp(get_semitone_str(i, false), "A")) {
-			return 1;
-		} else if (10 == i && 0 != strcmp(get_semitone_str(i, true), "Bb")) {
-			return 1;
-		} else if (11 == i && 0 != strcmp(get_semitone_str(i, false), "B")) {
-			return 1;
-		} else if (12 == i && NULL != get_semitone_str(i, true)) {
-			return 1;
-		}
 	}
 
 	test_note.semitone = UNKNOWN_SEMITONE;
@@ -163,18 +156,21 @@ int main(int argc, const char *argv[]) {
 		return 1;
 	}
 
+	if (UNKNOWN_SEMITONE != get_fifth(UNKNOWN_SEMITONE)) {
+		return 1;
+	}
+
+	if (A != get_fifth(D)) {
+		return 1;
+	}
+
+	if (UNKNOWN_SEMITONE != get_fourth(UNKNOWN_SEMITONE)) {
+		return 1;
+	}
+
+	if (Ab != get_fourth(Eb)) {
+		return 1;
+	}
+
 	return 0;
-}
-
-static bool test_get_semitone(char *str, enum semitone_t expected)
-{
-	char semitone[5];
-
-        strcpy(semitone, str);
-	printf("test %s - returns %d\n", str, get_semitone(semitone));
-        if (expected != get_semitone(semitone)) {
-                return false;
-        }
-
-	return true;
 }

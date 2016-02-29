@@ -28,9 +28,10 @@ static bool is_allowable_freq(double freq);
  * The first character of the string argument will be changed to its lowercase
  * counterpart.
  */
-enum semitone_t get_semitone(char * const semitone)
+enum semitone_t get_semitone(const char * const semitone)
 {
 	char		*steps;
+	char		step;
 	enum semitone_t	ret;
 
 	if (NULL == semitone) {
@@ -41,7 +42,7 @@ enum semitone_t get_semitone(char * const semitone)
 		return UNKNOWN_SEMITONE;
 	}
 
-	semitone[0] = tolower(semitone[0]);
+	step = tolower(semitone[0]);
 
 	/*
 	 * The position of the steps in this string is used to determine the
@@ -51,7 +52,7 @@ enum semitone_t get_semitone(char * const semitone)
 
 	for (int i = 0; '\0' != steps[i]; ++i) {
 
-		if (steps[i] == semitone[0]) {
+		if (steps[i] == step) {
 			ret = i;
 			break;
 		}
@@ -66,7 +67,7 @@ enum semitone_t get_semitone(char * const semitone)
 		}
 	}
 
-	if (1 == strlen(semitone)) {
+	if ('\0' == semitone[1]) {
 		return ret;
 	}
 
@@ -109,6 +110,11 @@ char *get_semitone_str(enum semitone_t semitone, bool prefer_flat)
 	return semitone_strings_sharp[semitone];
 }
 
+/*
+ * This function verifies that the provided frequency falls within the range of
+ * notes this library can represent.  This range is from C0 -50.0 cents to B12
+ * +50 cents.
+ */
 static bool is_allowable_freq(double freq)
 {
 	double		lowest_freq;
@@ -294,3 +300,35 @@ struct note get_exact_note(double freq)
 
 	return note;
 }
+
+/*
+ * This function returns the semitone obtained by ascending by the interval of
+ * an equal tempered fifth.
+ */
+enum semitone_t get_fifth(enum semitone_t semitone)
+{
+	if (C > semitone || B < semitone) {
+		return UNKNOWN_SEMITONE;
+	}
+
+	/*
+	 * I was originally going to write a really cool circle of fifths thing
+	 * for this function, but then I realized it is much simpler to use
+	 * basic arithmetic to go up seven semitones.
+	 */
+	return (semitone + 7) % SEMITONES_PER_OCTAVE;
+}
+
+/*
+ * This function returns the semitone obtained by ascending by the interval of
+ * an equal tempered fourth.
+ */
+ enum semitone_t get_fourth(enum semitone_t semitone)
+ {
+	if (C > semitone || B < semitone) {
+		return UNKNOWN_SEMITONE;
+	}
+
+	/* All we have to do is go up five semitones. */
+	return (semitone + 5) % SEMITONES_PER_OCTAVE;
+ }
