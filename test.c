@@ -9,6 +9,13 @@ int main(int argc, const char *argv[]) {
 
 	struct note test_note;
 	char *semitone;
+	enum semitone_t *scale;
+	enum semitone_t c_major_scale[] = {C, D, E, F, G, A, B, UNKNOWN_SEMITONE};
+	enum semitone_t gb_major_scale[] = {Gb, Ab, Bb, B, Db, Eb, F, UNKNOWN_SEMITONE};
+	enum semitone_t b_major_scale[] = {B, Db, Eb, E, Gb, Ab, Bb, UNKNOWN_SEMITONE};
+	enum semitone_t c_natural_minor_scale[] = {C, D, Eb, F, G, Ab, Bb, UNKNOWN_SEMITONE};
+	enum semitone_t g_natural_minor_scale[] = {G, A, Bb, C, D, Eb, F, UNKNOWN_SEMITONE};
+	enum semitone_t d_natural_minor_scale[] = {D, E, F, G, A, Bb, C, UNKNOWN_SEMITONE};
 
 	test_note = get_exact_note(440.0);
 	if (test_note.semitone != A || test_note.octave != 4 || test_note.cents != 0.0) {
@@ -169,6 +176,64 @@ int main(int argc, const char *argv[]) {
 	}
 
 	if (Ab != get_fourth(Eb)) {
+		return 1;
+	}
+
+	scale = get_major_scale(C);
+	for (int i = 0; i < sizeof(c_major_scale) / sizeof(enum semitone_t); ++i) {
+		if (scale[i] != c_major_scale[i]) {
+			return 1;
+		}
+	}
+	free(scale);
+
+	scale = get_major_scale(Gb);
+	for (int i = 0; i < sizeof(gb_major_scale) / sizeof(enum semitone_t); ++i) {
+		if (scale[i] != gb_major_scale[i]) {
+			return 1;
+		}
+	}
+	free(scale);
+
+	scale = get_major_scale(B);
+	for (int i = 0; i < sizeof(b_major_scale) / sizeof(enum semitone_t); ++i) {
+		if (scale[i] != b_major_scale[i]) {
+			return 1;
+		}
+	}
+	free(scale);
+
+	scale = get_major_scale(UNKNOWN_SEMITONE);
+	if (NULL != scale) {
+		return 1;
+	}
+
+	scale = get_natural_minor_scale(C);
+	for (int i = 0; i < sizeof(c_natural_minor_scale) / sizeof(enum semitone_t); ++i) {
+		if (scale[i] != c_natural_minor_scale[i]) {
+			return 1;
+		}
+	}
+	free(scale);
+
+	scale = get_natural_minor_scale(G);
+	for (int i = 0; i < sizeof(g_natural_minor_scale) / sizeof(enum semitone_t); ++i) {
+		if (scale[i] != g_natural_minor_scale[i]) {
+			return 1;
+		}
+	}
+	free(scale);
+
+	scale = get_natural_minor_scale(D);
+	for (int i = 0; i < sizeof(d_natural_minor_scale) / sizeof(enum semitone_t); ++i) {
+		if (scale[i] != d_natural_minor_scale[i]) {
+			return 1;
+		}
+	}
+	free(scale);
+
+	scale = get_natural_minor_scale(UNKNOWN_SEMITONE);
+	if (NULL != scale) {
 		return 1;
 	}
 

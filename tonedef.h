@@ -31,6 +31,15 @@
 /* number of cents in a half-step */
 #define SEMITONE_INTERVAL_CENTS	100
 
+/* return value to indicate an error in determining a frequency */
+#define INVALID_FREQUENCY	-1.0
+
+/* val for octave member of note struct to indicate an err determining a note */
+#define INVALID_OCTAVE		-1
+
+/* val for cents member of note struct to indicate an err determining a note */
+#define INVALID_CENTS		-255.0
+
 /*
  * The half step enumeration defines the difference in semitones of the note
  * from the base note in the octave.  For example, the note E is 4 semitones
@@ -63,5 +72,7 @@ enum semitone_t	get_semitone(const char * const semitone);
 char		*get_semitone_str(enum semitone_t semitone, bool prefer_flat);
 enum semitone_t	get_fifth(enum semitone_t semitone);
 enum semitone_t	get_fourth(enum semitone_t semitone);
+enum semitone_t	*get_major_scale(enum semitone_t tonic);
+enum semitone_t	*get_natural_minor_scale(enum semitone_t tonic);
 
 #endif

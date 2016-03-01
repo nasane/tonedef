@@ -8,11 +8,13 @@
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "tonedef.h"
 
 /* function prototypes for static functions */
 static bool is_allowable_freq(double freq);
+static enum semitone_t *get_scale(enum semitone_t tonic, enum semitone_t *scale, int scale_length);
 
 /*
  * Retrieves the semitone enumeration representative of the string argument.
@@ -62,7 +64,7 @@ enum semitone_t get_semitone(const char * const semitone)
 		 * broken from the loop, then the string is no note we know
 		 * about!
 		 */
-		if (strlen(steps) - 1 == i) {
+		if ('\0' == steps[i + 1]) {
 			return UNKNOWN_SEMITONE;
 		}
 	}
@@ -153,13 +155,13 @@ double get_freq(const struct note * const note)
 
 	if (note->semitone < C || note->semitone > B) {
 		fprintf(stderr, "invalid semitone '%d'\n", note->semitone);
-		return -1.0;
+		return INVALID_FREQUENCY;
 	}
 
 	if (note->octave < OCTAVE_MIN || note->octave > OCTAVE_MAX) {
 		fprintf(stderr, "octave must be within %d to %d\n",
 			OCTAVE_MIN, OCTAVE_MAX);
-		return -1.0;
+		return INVALID_FREQUENCY;
 	}
 
 	if (note->cents < -(SEMITONE_INTERVAL_CENTS / 2.0) ||
@@ -167,7 +169,7 @@ double get_freq(const struct note * const note)
 		fprintf(stderr, "cents must be within %f to %f\n",
 			-(SEMITONE_INTERVAL_CENTS / 2.0),
 			  SEMITONE_INTERVAL_CENTS / 2.0);
-		return -1.0;
+		return INVALID_FREQUENCY;
 	}
 
 	/*
@@ -229,8 +231,8 @@ struct note get_approx_note(double freq)
 	if (!is_allowable_freq(freq)) {
 		fprintf(stderr, "frequency %f not in acceptable range\n", freq);
 		note.semitone	= UNKNOWN_SEMITONE;
-		note.octave	= -1;
-		note.cents	= -255.0;
+		note.octave	= INVALID_OCTAVE;
+		note.cents	= INVALID_CENTS	;
 		return note;
 	}
 
@@ -268,6 +270,15 @@ struct note get_approx_note(double freq)
 	return note;
 }
 
+/*
+ * This function retrieves the exact note for the given frequency. The ideal
+ * frequency is based upon the ISO 16:1975 standard frequency of the A4 note
+ * (i.e. 440 Hz) in twelve-tone equal temperament.  The cents member of the
+ * note struct will be given a value in the (inclusive) range -50.0 to +50.0.
+ *
+ * Returns the note if everything works as expected.  Returns an invalid note
+ * for illegal arguments or internal error.
+ */
 struct note get_exact_note(double freq)
 {
 	struct note	note;
@@ -332,3 +343,61 @@ enum semitone_t get_fifth(enum semitone_t semitone)
 	/* All we have to do is go up five semitones. */
 	return (semitone + 5) % SEMITONES_PER_OCTAVE;
  }
+
+/*
+ * Static function for getting several different types of scales.  This function
+ * returns the generated scale on the heap.  The 'scale' parameter must be the
+ * version of the scale with 'C' as the tonic note and it must end with
+ * UNKNOWN_SEMITONE.
+ *
+ * Returns NULL for illegal arguments.  We skip some argument validation because
+ * this function is only called internally and because such code is very
+ * difficult to test.
+ */
+static enum semitone_t *get_scale(enum semitone_t tonic, enum semitone_t *scale, int scale_length)
+{
+	if (C > tonic || B < tonic) {
+		return NULL;
+	}
+
+	enum semitone_t *ret = (enum semitone_t *) malloc(scale_length * sizeof(enum semitone_t));
+
+	for (int i = 0; i < scale_length; ++i) {
+
+		if (UNKNOWN_SEMITONE == scale[i]) {
+			ret[i] = UNKNOWN_SEMITONE;
+			continue;
+		}
+
+		ret[i] = (scale[i] + tonic) % SEMITONES_PER_OCTAVE;
+	}
+
+	return ret;
+}
+
+/*
+ * This function returns the major scale of the given tonic note.  The scale is
+ * an array of semitone_t terminated by an UNKNOWN_SEMITONE, and it is allocated
+ * on the heap.  If the tonic is an illegal argument, NULL is returned.
+ */
+enum semitone_t *get_major_scale(enum semitone_t tonic)
+{
+	enum semitone_t major_scale[] = {C, D, E, F, G, A, B, UNKNOWN_SEMITONE};
+
+	return get_scale(tonic, major_scale,
+		sizeof(major_scale) / sizeof(enum semitone_t));
+}
+
+/*
+ * This function returns the natural minor scale of the given tonic note.  The
+ * scale is an array of semitone_t terminated by an UNKNOWN_SEMITONE, and it is
+ * allocated on the heap.  If the tonic is an illegal argument, NULL is
+ * returned.
+ */
+enum semitone_t *get_natural_minor_scale(enum semitone_t tonic)
+{
+	enum semitone_t natural_minor_scale[] = {C, D, Eb, F, G, Ab, Bb, UNKNOWN_SEMITONE};
+
+	return get_scale(tonic, natural_minor_scale,
+		sizeof(natural_minor_scale) / sizeof(enum semitone_t));
+}
