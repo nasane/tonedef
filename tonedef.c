@@ -401,3 +401,11 @@ enum semitone_t *get_natural_minor_scale(enum semitone_t tonic)
 	return get_scale(tonic, natural_minor_scale,
 		sizeof(natural_minor_scale) / sizeof(enum semitone_t));
 }
+
+enum semitone_t *get_chromatic_scale(enum semitone_t tonic)
+{
+	enum semitone_t chromatic_scale[] = {C, Db, D, Eb, E, F, Gb, G, Ab, A, Bb, B, UNKNOWN_SEMITONE};
+
+	return get_scale(tonic, chromatic_scale,
+		sizeof(chromatic_scale) / sizeof(enum semitone_t));
+}

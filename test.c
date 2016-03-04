@@ -16,6 +16,7 @@ int main(int argc, const char *argv[]) {
 	enum semitone_t c_natural_minor_scale[] = {C, D, Eb, F, G, Ab, Bb, UNKNOWN_SEMITONE};
 	enum semitone_t g_natural_minor_scale[] = {G, A, Bb, C, D, Eb, F, UNKNOWN_SEMITONE};
 	enum semitone_t d_natural_minor_scale[] = {D, E, F, G, A, Bb, C, UNKNOWN_SEMITONE};
+	enum semitone_t e_chromatic_scale[] = {E, F, Gb, G, Ab, A, Bb, B, C, Db, D, Eb, UNKNOWN_SEMITONE};
 
 	test_note = get_exact_note(440.0);
 	if (test_note.semitone != A || test_note.octave != 4 || test_note.cents != 0.0) {
@@ -234,8 +235,16 @@ int main(int argc, const char *argv[]) {
 
 	scale = get_natural_minor_scale(UNKNOWN_SEMITONE);
 	if (NULL != scale) {
-		return 1;
+                return 1;
 	}
+
+	scale = get_chromatic_scale(E);
+	for (int i = 0; i < sizeof(e_chromatic_scale) / sizeof(enum semitone_t); ++i) {
+		if (scale[i] != e_chromatic_scale[i]) {
+			return 1;
+		}
+	}
+	free(scale);
 
 	return 0;
 }
