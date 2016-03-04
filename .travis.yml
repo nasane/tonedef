@@ -11,6 +11,7 @@ install:
   - wget http://www.mega-nerd.com/libsndfile/files/libsndfile-1.0.26.tar.gz
   - tar -xzvf libsndfile-1.0.26.tar.gz
   - cd libsndfile-1.0.26 && ./configure && make && make check && sudo make install
+  - cd ..
 script:
   - make && make tests && env LD_LIBRARY_PATH=./ ./test
 after_success:
