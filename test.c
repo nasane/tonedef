@@ -5,8 +5,9 @@
 #include <string.h>
 #include "tonedef.h"
 
-int main(int argc, const char *argv[]) {
-
+int main(int argc, const char *argv[])
+{
+	float *a4_wav_samples;
 	struct note test_note;
 	char *semitone;
 	enum semitone_t *scale;
@@ -245,6 +246,45 @@ int main(int argc, const char *argv[]) {
 		}
 	}
 	free(scale);
+
+	a4_wav_samples = get_samples_from_file("a4.wav", 12);
+
+	if (fabs(a4_wav_samples[0] - 0.0000000000) > 0.00001) {
+		return 1;
+	}
+
+	if (fabs(a4_wav_samples[3] - 0.0621588230) > 0.00001) {
+		return 1;
+	}
+
+	if (fabs(a4_wav_samples[4] - 0.1240735054) > 0.00001) {
+		return 1;
+	}
+
+	if (fabs(a4_wav_samples[7] - 0.1855007410) > 0.00001) {
+		return 1;
+	}
+
+	if (fabs(a4_wav_samples[8] - 0.2461992502) > 0.00001) {
+		return 1;
+	}
+
+	if (fabs(a4_wav_samples[11] - 0.3059304953) > 0.00001) {
+		return 1;
+	}
+	free(a4_wav_samples);
+
+	if (NULL != get_samples_from_file(NULL, 12)) {
+		return 1;
+	}
+
+	if (NULL != get_samples_from_file("a4.wav", -23)) {
+		return 1;
+	}
+
+	if (NULL != get_samples_from_file("does_not_exist.wav", 1024)) {
+		return 1;
+	}
 
 	return 0;
 }

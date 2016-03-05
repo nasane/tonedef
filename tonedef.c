@@ -5,12 +5,17 @@
  */
 
 #include <ctype.h>
+#include <fftw3.h>
 #include <math.h>
+#include <sndfile.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "tonedef.h"
+
+#define MIN(a, b)		a < b ? a : b
+#define AUDIO_SAMPLE_BUFSIZE	256
 
 /* function prototypes for static functions */
 static bool is_allowable_freq(double freq);
@@ -408,4 +413,47 @@ enum semitone_t *get_chromatic_scale(enum semitone_t tonic)
 
 	return get_scale(tonic, chromatic_scale,
 		sizeof(chromatic_scale) / sizeof(enum semitone_t));
+}
+
+float *get_samples_from_file(char *filename, long samples)
+{
+	SNDFILE	*file;
+	SF_INFO	sfinfo;
+	float	*buf;
+	float	*ret;
+	int	audio_channels;
+	int	rd_cnt;
+	long	i;
+	long	ret_bytes;
+	long	bytes_to_cpy;
+
+
+	if (NULL == filename) {
+		return NULL;
+	}
+
+	if (samples < 0) {
+		return NULL;
+	}
+
+	memset(&sfinfo, 0, sizeof(sfinfo));
+
+	if (NULL == (file = sf_open(filename, SFM_READ, &sfinfo))) {
+		/* TODO: print error */
+		return NULL;
+	}
+
+	audio_channels = sfinfo.channels;
+	ret_bytes = audio_channels * samples * sizeof(float);
+	ret = (float *) malloc(ret_bytes);
+	buf = (float *) malloc((audio_channels * AUDIO_SAMPLE_BUFSIZE) * sizeof(float));
+	i = 0;
+	while (i < ret_bytes && 0 < (rd_cnt = sf_readf_float(file, buf, AUDIO_SAMPLE_BUFSIZE))) {
+		bytes_to_cpy = MIN(rd_cnt * audio_channels * sizeof(float), ret_bytes - i);
+		memcpy(ret + (i / sizeof(float)), buf, bytes_to_cpy);
+		i += bytes_to_cpy;
+	}
+
+	sf_close(file);
+	return ret;
 }

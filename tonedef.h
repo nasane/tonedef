@@ -75,5 +75,6 @@ enum semitone_t	get_fourth(enum semitone_t semitone);
 enum semitone_t	*get_major_scale(enum semitone_t tonic);
 enum semitone_t	*get_natural_minor_scale(enum semitone_t tonic);
 enum semitone_t	*get_chromatic_scale(enum semitone_t tonic);
+float		*get_samples_from_file(char *filename, long samples);
 
 #endif
