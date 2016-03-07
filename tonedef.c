@@ -457,3 +457,36 @@ float *get_samples_from_file(char *filename, long samples)
 	sf_close(file);
 	return ret;
 }
+
+void split_stereo_channels(const float * const samples, long num_samples, float **chan1, float **chan2)
+{
+	long num_samples_per_chan;
+	long i;
+
+	num_samples_per_chan = num_samples / 2 + 1;
+
+	*chan1 = (float *) calloc(num_samples_per_chan, sizeof(float));
+	*chan2 = (float *) calloc(num_samples_per_chan, sizeof(float));
+
+	for (i = 0; i < num_samples; ++i) {
+		if (0 == i % 2) {
+			(*chan1)[i / 2] = samples[i];
+		} else {
+			(*chan2)[i / 2] = samples[i];
+		}
+	}
+}
+
+float *apply_hann_function(const float * const samples, long num_samples)
+{
+	long i;
+	float *ret;
+
+	ret = (float *) malloc(num_samples * sizeof(float));
+	for (i = 0; i < num_samples; ++i) {
+		ret[i] = samples[i]
+			* 0.5 * (1 - cos((2 * M_PI * i) / (num_samples - 1)));
+	}
+
+	return ret;
+}

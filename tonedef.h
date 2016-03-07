@@ -76,5 +76,7 @@ enum semitone_t	*get_major_scale(enum semitone_t tonic);
 enum semitone_t	*get_natural_minor_scale(enum semitone_t tonic);
 enum semitone_t	*get_chromatic_scale(enum semitone_t tonic);
 float		*get_samples_from_file(char *filename, long samples);
+float		*apply_hann_function(const float * const samples, long num_samples);
+void		split_stereo_channels(const float * const samples, long num_samples, float **chan1, float **chan2);
 
 #endif

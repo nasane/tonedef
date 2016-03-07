@@ -8,6 +8,9 @@
 int main(int argc, const char *argv[])
 {
 	float *a4_wav_samples;
+	float *a4_wav_samples_hannd;
+	float *a4_wav_samples_left;
+	float *a4_wav_samples_right;
 	struct note test_note;
 	char *semitone;
 	enum semitone_t *scale;
@@ -285,6 +288,52 @@ int main(int argc, const char *argv[])
 	if (NULL != get_samples_from_file("does_not_exist.wav", 1024)) {
 		return 1;
 	}
+
+	a4_wav_samples = get_samples_from_file("a4.wav", 24);
+	split_stereo_channels(a4_wav_samples, 24, &a4_wav_samples_left, &a4_wav_samples_right);
+
+	if (fabs(a4_wav_samples_left[3] - 0.1855007410) > 0.00001) {
+		return 1;
+	}
+
+	if (fabs(a4_wav_samples_left[7] - 0.4215573072) > 0.00001) {
+		return 1;
+	}
+
+	if (fabs(a4_wav_samples_left[11] - 0.6312451363) > 0.00001) {
+		return 1;
+	}
+
+	if (fabs(a4_wav_samples_right[3] - 0.1855007410) > 0.00001) {
+		return 1;
+	}
+
+	if (fabs(a4_wav_samples_right[7] - 0.4215573072) > 0.00001) {
+		return 1;
+	}
+
+	if (fabs(a4_wav_samples_right[11] - 0.6312451363) > 0.00001) {
+		return 1;
+	}
+
+	a4_wav_samples_hannd = apply_hann_function(a4_wav_samples_left, 12);
+
+	if (fabs(a4_wav_samples_hannd[0] - 0.0000000000) > 0.00001) {
+		return 1;
+	}
+
+	if (fabs(a4_wav_samples_hannd[6] - 0.3570781648) > 0.00001) {
+		return 1;
+	}
+
+	if (fabs(a4_wav_samples_hannd[10] - 0.0461991020) > 0.00001) {
+		return 1;
+	}
+
+	free(a4_wav_samples_hannd);
+	free(a4_wav_samples_left);
+	free(a4_wav_samples_right);
+	free(a4_wav_samples);
 
 	return 0;
 }
