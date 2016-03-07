@@ -40,6 +40,10 @@
 /* val for cents member of note struct to indicate an err determining a note */
 #define INVALID_CENTS		-255.0
 
+#ifndef M_PI
+#define M_PI        3.14159265358979323846264338327950288
+#endif
+
 /*
  * The half step enumeration defines the difference in semitones of the note
  * from the base note in the octave.  For example, the note E is 4 semitones

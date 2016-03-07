@@ -458,6 +458,7 @@ float *get_samples_from_file(char *filename, long samples)
 	return ret;
 }
 
+// TODO: validate args
 void split_stereo_channels(const float * const samples, long num_samples, float **chan1, float **chan2)
 {
 	long num_samples_per_chan;
@@ -477,6 +478,7 @@ void split_stereo_channels(const float * const samples, long num_samples, float 
 	}
 }
 
+// TODO: validate args
 float *apply_hann_function(const float * const samples, long num_samples)
 {
 	long i;
