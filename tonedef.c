@@ -4,6 +4,7 @@
  *  Copyright (C) 2016  Nathan Bossart
  */
 
+#include <assert.h>
 #include <ctype.h>
 #include <fftw3.h>
 #include <math.h>
@@ -355,12 +356,14 @@ enum semitone_t get_fifth(enum semitone_t semitone)
  * version of the scale with 'C' as the tonic note and it must end with
  * UNKNOWN_SEMITONE.
  *
- * Returns NULL for illegal arguments.  We skip some argument validation because
- * this function is only called internally and because such code is very
- * difficult to test.
+ * Returns NULL for illegal arguments.
  */
 static enum semitone_t *get_scale(enum semitone_t tonic, enum semitone_t *scale, int scale_length)
 {
+	assert(NULL != scale);
+	assert(0 < scale_length);
+	assert(UNKNOWN_SEMITONE == scale[scale_length - 1]);
+
 	if (C > tonic || B < tonic) {
 		return NULL;
 	}
@@ -458,11 +461,26 @@ float *get_samples_from_file(char *filename, long samples)
 	return ret;
 }
 
-// TODO: validate args
-void split_stereo_channels(const float * const samples, long num_samples, float **chan1, float **chan2)
+int split_stereo_channels(const float * const samples, long num_samples, float **chan1, float **chan2)
 {
 	long num_samples_per_chan;
 	long i;
+
+	if (NULL == samples) {
+		return -1;
+	}
+
+	if (0 > num_samples) {
+		return -1;
+	}
+
+	if (NULL == chan1) {
+		return -1;
+	}
+
+	if (NULL == chan2) {
+		return -1;
+	}
 
 	num_samples_per_chan = num_samples / 2 + 1;
 
@@ -476,13 +494,22 @@ void split_stereo_channels(const float * const samples, long num_samples, float 
 			(*chan2)[i / 2] = samples[i];
 		}
 	}
+
+	return 0;
 }
 
-// TODO: validate args
 float *apply_hann_function(const float * const samples, long num_samples)
 {
 	long i;
 	float *ret;
+
+	if (NULL == samples) {
+		return NULL;
+	}
+
+	if (0 > num_samples) {
+		return NULL;
+	}
 
 	ret = (float *) malloc(num_samples * sizeof(float));
 	for (i = 0; i < num_samples; ++i) {

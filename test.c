@@ -290,7 +290,26 @@ int main(int argc, const char *argv[])
 	}
 
 	a4_wav_samples = get_samples_from_file("a4.wav", 24);
-	split_stereo_channels(a4_wav_samples, 24, &a4_wav_samples_left, &a4_wav_samples_right);
+
+	if (-1 != split_stereo_channels(NULL, 24, &a4_wav_samples_left, &a4_wav_samples_right)) {
+		return 1;
+	}
+
+	if (-1 != split_stereo_channels(a4_wav_samples, -123, &a4_wav_samples_left, &a4_wav_samples_right)) {
+		return 1;
+	}
+
+	if (-1 != split_stereo_channels(a4_wav_samples, 24, NULL, &a4_wav_samples_right)) {
+		return 1;
+	}
+
+	if (-1 != split_stereo_channels(a4_wav_samples, 24, &a4_wav_samples_left, NULL)) {
+		return 1;
+	}
+
+	if (0 != split_stereo_channels(a4_wav_samples, 24, &a4_wav_samples_left, &a4_wav_samples_right)) {
+		return 1;
+	}
 
 	if (fabs(a4_wav_samples_left[3] - 0.1855007410) > 0.00001) {
 		return 1;
@@ -313,6 +332,14 @@ int main(int argc, const char *argv[])
 	}
 
 	if (fabs(a4_wav_samples_right[11] - 0.6312451363) > 0.00001) {
+		return 1;
+	}
+
+	if (NULL != apply_hann_function(a4_wav_samples_left, -34)) {
+		return 1;
+	}
+
+	if (NULL != apply_hann_function(NULL, 12)) {
 		return 1;
 	}
 

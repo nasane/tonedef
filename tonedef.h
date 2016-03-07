@@ -40,8 +40,9 @@
 /* val for cents member of note struct to indicate an err determining a note */
 #define INVALID_CENTS		-255.0
 
+/* some platforms don't define the M_PI macro for whatever reason */
 #ifndef M_PI
-#define M_PI        3.14159265358979323846264338327950288
+#define M_PI			3.14159265358979323846264338327950288
 #endif
 
 /*
@@ -81,6 +82,6 @@ enum semitone_t	*get_natural_minor_scale(enum semitone_t tonic);
 enum semitone_t	*get_chromatic_scale(enum semitone_t tonic);
 float		*get_samples_from_file(char *filename, long samples);
 float		*apply_hann_function(const float * const samples, long num_samples);
-void		split_stereo_channels(const float * const samples, long num_samples, float **chan1, float **chan2);
+int		split_stereo_channels(const float * const samples, long num_samples, float **chan1, float **chan2);
 
 #endif
