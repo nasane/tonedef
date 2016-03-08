@@ -17,10 +17,13 @@
 
 #define MIN(a, b)		a < b ? a : b
 #define AUDIO_SAMPLE_BUFSIZE	256
+#define MALLOC_SAFELY(a)	detect_oom(malloc(a))
+#define CALLOC_SAFELY(a, b)	detect_oom(calloc(a, b))
 
 /* function prototypes for static functions */
 static bool is_allowable_freq(double freq);
 static enum semitone_t *get_scale(enum semitone_t tonic, enum semitone_t *scale, int scale_length);
+static inline void *detect_oom(void *ptr);
 
 /*
  * Retrieves the semitone enumeration representative of the string argument.
@@ -305,6 +308,7 @@ struct note get_exact_note(double freq)
 	 * made it this far.
 	 */
 	approx_note_freq = get_freq(&note);
+	assert(INVALID_FREQUENCY != approx_note_freq);
 
 	/*
 	 * Calculate the number of cents from the ideal frequency of the
@@ -368,7 +372,7 @@ static enum semitone_t *get_scale(enum semitone_t tonic, enum semitone_t *scale,
 		return NULL;
 	}
 
-	enum semitone_t *ret = (enum semitone_t *) malloc(scale_length * sizeof(enum semitone_t));
+	enum semitone_t *ret = (enum semitone_t *) MALLOC_SAFELY(scale_length * sizeof(enum semitone_t));
 
 	for (int i = 0; i < scale_length; ++i) {
 
@@ -410,6 +414,40 @@ enum semitone_t *get_natural_minor_scale(enum semitone_t tonic)
 		sizeof(natural_minor_scale) / sizeof(enum semitone_t));
 }
 
+/*
+ * This function returns the harmonic minor scale of the given tonic note.  The
+ * scale is an array of semitone_t terminated by an UNKNOWN_SEMITONE, and it is
+ * allocated on the heap.  If the tonic is an illegal argument, NULL is
+ * returned.
+ */
+enum semitone_t *get_harmonic_minor_scale(enum semitone_t tonic)
+{
+	enum semitone_t harmonic_minor_scale[] = {C, D, Eb, F, G, Ab, B, UNKNOWN_SEMITONE};
+
+	return get_scale(tonic, harmonic_minor_scale,
+		sizeof(harmonic_minor_scale) / sizeof(enum semitone_t));
+}
+
+/*
+ * This function returns the melodic minor scale of the given tonic note.  The
+ * scale is an array of semitone_t terminated by an UNKNOWN_SEMITONE, and it is
+ * allocated on the heap.  If the tonic is an illegal argument, NULL is
+ * returned.
+ */
+enum semitone_t *get_melodic_minor_scale(enum semitone_t tonic)
+{
+	enum semitone_t melodic_minor_scale[] = {C, D, Eb, F, G, A, B, UNKNOWN_SEMITONE};
+
+	return get_scale(tonic, melodic_minor_scale,
+		sizeof(melodic_minor_scale) / sizeof(enum semitone_t));
+}
+
+/*
+ * This function returns the chromatic scale of the given tonic note.  The scale
+ * is an array of semitone_t terminated by an UNKNOWN_SEMITONE, and it is
+ * allocated on the heap.  If the tonic is an illegal argument, NULL is
+ * returned.
+ */
 enum semitone_t *get_chromatic_scale(enum semitone_t tonic)
 {
 	enum semitone_t chromatic_scale[] = {C, Db, D, Eb, E, F, Gb, G, Ab, A, Bb, B, UNKNOWN_SEMITONE};
@@ -418,7 +456,8 @@ enum semitone_t *get_chromatic_scale(enum semitone_t tonic)
 		sizeof(chromatic_scale) / sizeof(enum semitone_t));
 }
 
-float *get_samples_from_file(char *filename, long samples)
+/* TODO: documentation */
+float *get_samples_from_file(char *filename, long samples_requested, long *samples_returned)
 {
 	SNDFILE	*file;
 	SF_INFO	sfinfo;
@@ -430,26 +469,28 @@ float *get_samples_from_file(char *filename, long samples)
 	long	ret_bytes;
 	long	bytes_to_cpy;
 
-
 	if (NULL == filename) {
 		return NULL;
 	}
 
-	if (samples < 0) {
+	if (samples_requested < 0) {
+		return NULL;
+	}
+
+	if (NULL == samples_returned) {
 		return NULL;
 	}
 
 	memset(&sfinfo, 0, sizeof(sfinfo));
 
 	if (NULL == (file = sf_open(filename, SFM_READ, &sfinfo))) {
-		/* TODO: print error */
 		return NULL;
 	}
 
 	audio_channels = sfinfo.channels;
-	ret_bytes = audio_channels * samples * sizeof(float);
-	ret = (float *) malloc(ret_bytes);
-	buf = (float *) malloc((audio_channels * AUDIO_SAMPLE_BUFSIZE) * sizeof(float));
+	ret_bytes = audio_channels * samples_requested * sizeof(float);
+	ret = (float *) MALLOC_SAFELY(ret_bytes);
+	buf = (float *) MALLOC_SAFELY((audio_channels * AUDIO_SAMPLE_BUFSIZE) * sizeof(float));
 	i = 0;
 	while (i < ret_bytes && 0 < (rd_cnt = sf_readf_float(file, buf, AUDIO_SAMPLE_BUFSIZE))) {
 		bytes_to_cpy = MIN(rd_cnt * audio_channels * sizeof(float), ret_bytes - i);
@@ -457,47 +498,48 @@ float *get_samples_from_file(char *filename, long samples)
 		i += bytes_to_cpy;
 	}
 
+	*samples_returned = i / (audio_channels * sizeof(float));
 	sf_close(file);
 	return ret;
 }
 
+/* TODO: documentation */
 int split_stereo_channels(const float * const samples, long num_samples, float **chan1, float **chan2)
 {
 	long num_samples_per_chan;
 	long i;
 
 	if (NULL == samples) {
-		return -1;
+		return SPLIT_STEREO_CHANNELS_FAILURE_CODE;
 	}
 
 	if (0 > num_samples) {
-		return -1;
+		return SPLIT_STEREO_CHANNELS_FAILURE_CODE;
 	}
 
 	if (NULL == chan1) {
-		return -1;
+		return SPLIT_STEREO_CHANNELS_FAILURE_CODE;
 	}
 
 	if (NULL == chan2) {
-		return -1;
+		return SPLIT_STEREO_CHANNELS_FAILURE_CODE;
 	}
 
-	num_samples_per_chan = num_samples / 2 + 1;
+	*chan1 = (float *) CALLOC_SAFELY(num_samples, sizeof(float));
+	*chan2 = (float *) CALLOC_SAFELY(num_samples, sizeof(float));
 
-	*chan1 = (float *) calloc(num_samples_per_chan, sizeof(float));
-	*chan2 = (float *) calloc(num_samples_per_chan, sizeof(float));
-
-	for (i = 0; i < num_samples; ++i) {
-		if (0 == i % 2) {
-			(*chan1)[i / 2] = samples[i];
+	for (i = 0; i < num_samples * STEREO_NUM_CHANNELS; ++i) {
+		if (0 == i % STEREO_NUM_CHANNELS) {
+			(*chan1)[i / STEREO_NUM_CHANNELS] = samples[i];
 		} else {
-			(*chan2)[i / 2] = samples[i];
+			(*chan2)[i / STEREO_NUM_CHANNELS] = samples[i];
 		}
 	}
 
-	return 0;
+	return SPLIT_STEREO_CHANNELS_SUCCESS_CODE;
 }
 
+/* TODO: documentation */
 float *apply_hann_function(const float * const samples, long num_samples)
 {
 	long i;
@@ -511,11 +553,28 @@ float *apply_hann_function(const float * const samples, long num_samples)
 		return NULL;
 	}
 
-	ret = (float *) malloc(num_samples * sizeof(float));
+	ret = (float *) MALLOC_SAFELY(num_samples * sizeof(float));
 	for (i = 0; i < num_samples; ++i) {
 		ret[i] = samples[i]
 			* 0.5 * (1 - cos((2 * M_PI * i) / (num_samples - 1)));
 	}
 
 	return ret;
+}
+
+/*
+ * Static wrapper function for memory allocation functions.
+ *
+ * This is a convienience function for checking if we've run out of memory.
+ * If the pointer argument is NULL, then we immediately exit the program with a
+ * failure code.
+ */
+static inline void *detect_oom(void *ptr)
+{
+	if (NULL == ptr) {
+		fprintf(stderr, "out of memory\n");
+		exit(EXIT_FAILURE_CODE);
+	}
+
+	return ptr;
 }

@@ -45,6 +45,16 @@
 #define M_PI			3.14159265358979323846264338327950288
 #endif
 
+/* failure code to exit with if we hit a critical error */
+#define EXIT_FAILURE_CODE	1
+
+/* return codes for the split_stereo_channels() function */
+#define SPLIT_STEREO_CHANNELS_SUCCESS_CODE	0
+#define SPLIT_STEREO_CHANNELS_FAILURE_CODE	-1
+
+/* number of channels in stereo audio */
+#define STEREO_NUM_CHANNELS	2
+
 /*
  * The half step enumeration defines the difference in semitones of the note
  * from the base note in the octave.  For example, the note E is 4 semitones
@@ -79,8 +89,10 @@ enum semitone_t	get_fifth(enum semitone_t semitone);
 enum semitone_t	get_fourth(enum semitone_t semitone);
 enum semitone_t	*get_major_scale(enum semitone_t tonic);
 enum semitone_t	*get_natural_minor_scale(enum semitone_t tonic);
+enum semitone_t	*get_harmonic_minor_scale(enum semitone_t tonic);
+enum semitone_t	*get_melodic_minor_scale(enum semitone_t tonic);
 enum semitone_t	*get_chromatic_scale(enum semitone_t tonic);
-float		*get_samples_from_file(char *filename, long samples);
+float		*get_samples_from_file(char *filename, long samples_requested, long *samples_returned);
 float		*apply_hann_function(const float * const samples, long num_samples);
 int		split_stereo_channels(const float * const samples, long num_samples, float **chan1, float **chan2);
 

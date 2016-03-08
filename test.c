@@ -7,6 +7,7 @@
 
 int main(int argc, const char *argv[])
 {
+	long samples_returned;
 	float *a4_wav_samples;
 	float *a4_wav_samples_hannd;
 	float *a4_wav_samples_left;
@@ -21,6 +22,8 @@ int main(int argc, const char *argv[])
 	enum semitone_t g_natural_minor_scale[] = {G, A, Bb, C, D, Eb, F, UNKNOWN_SEMITONE};
 	enum semitone_t d_natural_minor_scale[] = {D, E, F, G, A, Bb, C, UNKNOWN_SEMITONE};
 	enum semitone_t e_chromatic_scale[] = {E, F, Gb, G, Ab, A, Bb, B, C, Db, D, Eb, UNKNOWN_SEMITONE};
+	enum semitone_t a_harmonic_minor_scale[] = {A, B, C, D, E, F, Ab, UNKNOWN_SEMITONE};
+	enum semitone_t g_melodic_minor_scale[] = {G, A, Bb, C, D, E, Gb, UNKNOWN_SEMITONE};
 
 	test_note = get_exact_note(440.0);
 	if (test_note.semitone != A || test_note.octave != 4 || test_note.cents != 0.0) {
@@ -250,7 +253,23 @@ int main(int argc, const char *argv[])
 	}
 	free(scale);
 
-	a4_wav_samples = get_samples_from_file("a4.wav", 12);
+	scale = get_harmonic_minor_scale(A);
+	for (int i = 0; i < sizeof(a_harmonic_minor_scale) / sizeof(enum semitone_t); ++i) {
+		if (scale[i] != a_harmonic_minor_scale[i]) {
+			return 1;
+		}
+	}
+	free(scale);
+
+	scale = get_melodic_minor_scale(G);
+	for (int i = 0; i < sizeof(g_melodic_minor_scale) / sizeof(enum semitone_t); ++i) {
+		if (scale[i] != g_melodic_minor_scale[i]) {
+			return 1;
+		}
+	}
+	free(scale);
+
+	a4_wav_samples = get_samples_from_file("a4.wav", 12, &samples_returned);
 
 	if (fabs(a4_wav_samples[0] - 0.0000000000) > 0.00001) {
 		return 1;
@@ -277,19 +296,27 @@ int main(int argc, const char *argv[])
 	}
 	free(a4_wav_samples);
 
-	if (NULL != get_samples_from_file(NULL, 12)) {
+	if (NULL != get_samples_from_file(NULL, 12, &samples_returned)) {
 		return 1;
 	}
 
-	if (NULL != get_samples_from_file("a4.wav", -23)) {
+	if (NULL != get_samples_from_file("a4.wav", -23, &samples_returned)) {
 		return 1;
 	}
 
-	if (NULL != get_samples_from_file("does_not_exist.wav", 1024)) {
+	if (NULL != get_samples_from_file("does_not_exist.wav", 1024, &samples_returned)) {
 		return 1;
 	}
 
-	a4_wav_samples = get_samples_from_file("a4.wav", 24);
+	if (NULL != get_samples_from_file("a4.wav", 24, NULL)) {
+		return 1;
+	}
+
+	a4_wav_samples = get_samples_from_file("a4.wav", 24, &samples_returned);
+
+	if (24 != samples_returned) {
+		return 1;
+	}
 
 	if (-1 != split_stereo_channels(NULL, 24, &a4_wav_samples_left, &a4_wav_samples_right)) {
 		return 1;
@@ -343,17 +370,17 @@ int main(int argc, const char *argv[])
 		return 1;
 	}
 
-	a4_wav_samples_hannd = apply_hann_function(a4_wav_samples_left, 12);
+	a4_wav_samples_hannd = apply_hann_function(a4_wav_samples_left, 24);
 
 	if (fabs(a4_wav_samples_hannd[0] - 0.0000000000) > 0.00001) {
 		return 1;
 	}
 
-	if (fabs(a4_wav_samples_hannd[6] - 0.3570781648) > 0.00001) {
+	if (fabs(a4_wav_samples_hannd[6] - 0.1946656853) > 0.00001) {
 		return 1;
 	}
 
-	if (fabs(a4_wav_samples_hannd[10] - 0.0461991020) > 0.00001) {
+	if (fabs(a4_wav_samples_hannd[20] - 0.1496363133) > 0.00001) {
 		return 1;
 	}
 
