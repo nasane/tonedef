@@ -651,6 +651,7 @@ static double *combine_channels(double *samples, long num_samples, int num_chann
 	return ret;
 }
 
+/* TODO: return decibels? */
 static double *get_fft_magnitudes(fftw_complex *fft_samples, long num_samples)
 {
 	long i;
@@ -732,7 +733,7 @@ struct note get_note_from_file(const char * const filename, double secs_to_sampl
 	free(hannd_samples);
 
 	if (NULL == (fft_magnitudes = get_fft_magnitudes(fft_samples, num_samples))) {
-		free(fft_samples);
+		fftw_free(fft_samples);
 		free(fft_magnitudes);
 		return invalid_note;
 	}

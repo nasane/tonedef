@@ -13,7 +13,7 @@ install:
   - cd libsndfile-1.0.26 && ./configure && make && make check && sudo make install && cd ..
   - wget http://www.fftw.org/fftw-3.3.4.tar.gz
   - tar -xzvf fftw-3.3.4.tar.gz
-  - cd fftw-3.3.4 && ./configure && make && make check && sudo make install && cd ..
+  - cd fftw-3.3.4 && ./configure --enable-shared && make && make check && sudo make install && cd ..
 script:
   - make && make tests && env LD_LIBRARY_PATH=./ ./test
 after_success:
