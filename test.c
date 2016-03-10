@@ -395,85 +395,35 @@ int main(int argc, const char *argv[])
 	free(wav_samples_right);
 	free(wav_samples);
 
-	wav_samples = get_samples_from_file("f5-a7.wav", HALF_SECOND_SAMPLE_COUNT, &samples_returned);
-	if (NULL == wav_samples || HALF_SECOND_SAMPLE_COUNT != samples_returned) {
+	note_from_file = get_note_from_file(NULL, .75);
+	if (UNKNOWN_SEMITONE != note_from_file.semitone) {
 		return 1;
 	}
 
-	if (0 != split_stereo_channels(wav_samples, HALF_SECOND_SAMPLE_COUNT, &wav_samples_left, &wav_samples_right)) {
+	note_from_file = get_note_from_file("a4.wav", -1.69);
+	if (UNKNOWN_SEMITONE != note_from_file.semitone) {
 		return 1;
 	}
 
-	if (NULL == (wav_samples_hannd = apply_hann_function(wav_samples_left, HALF_SECOND_SAMPLE_COUNT))) {
+	note_from_file = get_note_from_file("a4.wav", 100);
+	if (UNKNOWN_SEMITONE != note_from_file.semitone) {
 		return 1;
 	}
 
-	if (NULL == (fft_samples = get_fft(wav_samples_hannd, HALF_SECOND_SAMPLE_COUNT))) {
+	note_from_file = get_note_from_file("does_not_exist.wav", 1.0);
+	if (UNKNOWN_SEMITONE != note_from_file.semitone) {
 		return 1;
 	}
-
-	double max_j = 0.0;
-	double max_j_i = -1;
-	for (int i = 0; i < HALF_SECOND_SAMPLE_COUNT; ++i) {
-		double j = sqrt(fft_samples[i][0]*fft_samples[i][0] + fft_samples[i][1]*fft_samples[i][1]);
-		if (j > max_j) {
-			max_j = j;
-			max_j_i = i;
-		}
-	}
-
-	double freq = max_j_i * 2.0;
-	n = get_exact_note(freq);
-	printf("%s %d %.10f cents\n", get_semitone_str(n.semitone, true), n.octave, n.cents);
-
-	free(wav_samples_hannd);
-	free(wav_samples_left);
-	free(wav_samples_right);
-	free(wav_samples);
-	fftw_free(fft_samples);
-
-	wav_samples = get_samples_from_file("f5-a7.wav", HALF_SECOND_SAMPLE_COUNT, &samples_returned);
-	if (NULL == wav_samples || HALF_SECOND_SAMPLE_COUNT != samples_returned) {
-		return 1;
-	}
-
-	if (0 != split_stereo_channels(wav_samples, HALF_SECOND_SAMPLE_COUNT, &wav_samples_left, &wav_samples_right)) {
-		return 1;
-	}
-
-	if (NULL == (wav_samples_hannd = apply_hann_function(wav_samples_right, HALF_SECOND_SAMPLE_COUNT))) {
-		return 1;
-	}
-
-	if (NULL == (fft_samples = get_fft(wav_samples_hannd, HALF_SECOND_SAMPLE_COUNT))) {
-		return 1;
-	}
-
-	max_j = 0.0;
-	max_j_i = -1;
-	for (int i = 0; i < HALF_SECOND_SAMPLE_COUNT; ++i) {
-		double j = sqrt(fft_samples[i][0]*fft_samples[i][0] + fft_samples[i][1]*fft_samples[i][1]);
-		if (j > max_j) {
-			max_j = j;
-			max_j_i = i;
-		}
-	}
-
-	freq = max_j_i * 2.0;
-	n = get_exact_note(freq);
-	printf("%s %d %.10f cents\n", get_semitone_str(n.semitone, true), n.octave, n.cents);
-
-	free(wav_samples_hannd);
-	free(wav_samples_left);
-	free(wav_samples_right);
-	free(wav_samples);
-	fftw_free(fft_samples);
 
 	note_from_file = get_note_from_file("a4.wav", .75);
-	printf("%s %d %.2f cents\n", get_semitone_str(note_from_file.semitone, false), note_from_file.octave, note_from_file.cents);
+	if (A != note_from_file.semitone || 4 != note_from_file.octave || fabs(note_from_file.cents - 0.0000000000) > 0.00001) {
+		return 1;
+	}
 
 	note_from_file = get_note_from_file("g#5-piano.wav", 1.23);
-	printf("%s %d %.2f cents\n", get_semitone_str(note_from_file.semitone, false), note_from_file.octave, note_from_file.cents);
+	if (Ab != note_from_file.semitone || 5 != note_from_file.octave || fabs(note_from_file.cents - 5.6681983644) > 0.00001) {
+		return 1;
+	}
 
 	return 0;
 }

@@ -21,13 +21,13 @@
 #define CALLOC_SAFELY(a, b)	detect_oom(calloc(a, b))
 
 /* function prototypes for static functions */
-static bool is_allowable_freq(double freq);
-static enum semitone_t *get_scale(enum semitone_t tonic, enum semitone_t *scale, int scale_length);
-static inline void *detect_oom(void *ptr);
-static void get_sample_rate_of_file(char *filename, int *sample_rate, int *num_channels);
-static double *combine_channels(double *samples, long num_samples, int num_channels);
-static double *get_fft_magnitudes(fftw_complex *fft_samples, long num_samples);
-static void get_sound_file_metadata(const char * const filename, int *sample_rate, int *num_channels);
+static bool			is_allowable_freq(double freq);
+static enum semitone_t *	get_scale(enum semitone_t tonic, enum semitone_t *scale, int scale_length);
+static inline void *		detect_oom(void *ptr);
+static void 			get_sample_rate_of_file(char *filename, int *sample_rate, int *num_channels);
+static double *			combine_channels(double *samples, long num_samples, int num_channels);
+static double *			get_fft_magnitudes(fftw_complex *fft_samples, long num_samples);
+static void			get_sound_file_metadata(const char * const filename, int *sample_rate, int *num_channels);
 
 /*
  * Retrieves the semitone enumeration representative of the string argument.
@@ -466,12 +466,15 @@ static void get_sound_file_metadata(const char * const filename, int *sample_rat
 	SF_INFO sfinfo;
 	SNDFILE *file;
 
+	assert(NULL != sample_rate);
+	assert(NULL != num_channels);
+	assert(NULL != filename);
+
+	/* initialize to invalid values in case we hit an error */
+	*sample_rate = -1;
+	*num_channels = -1;
+
 	memset(&sfinfo, 0, sizeof(sfinfo));
-
-	if (NULL == filename) {
-		return;
-	}
-
 	if (NULL == (file = sf_open(filename, SFM_READ, &sfinfo))) {
 		return;
 	}
@@ -499,7 +502,7 @@ double *get_samples_from_file(const char * const filename, long samples_requeste
 		return NULL;
 	}
 
-	if (samples_requested < 0) {
+	if (0 >= samples_requested) {
 		return NULL;
 	}
 
@@ -508,7 +511,6 @@ double *get_samples_from_file(const char * const filename, long samples_requeste
 	}
 
 	memset(&sfinfo, 0, sizeof(sfinfo));
-
 	if (NULL == (file = sf_open(filename, SFM_READ, &sfinfo))) {
 		return NULL;
 	}
@@ -632,11 +634,13 @@ fftw_complex *get_fft(double *samples, long num_samples)
 
 static double *combine_channels(double *samples, long num_samples, int num_channels)
 {
-	int i;
-	int j;
-	double *ret;
+	long	i;
+	int	j;
+	double	*ret;
 
-	/* TODO: argument checking */
+	assert(NULL != samples);
+	assert(0 < num_samples);
+	assert(0 < num_channels);
 
 	ret = (double *) MALLOC_SAFELY(num_samples * sizeof(double));
 
@@ -651,18 +655,19 @@ static double *combine_channels(double *samples, long num_samples, int num_chann
 	return ret;
 }
 
-/* TODO: return decibels? */
 static double *get_fft_magnitudes(fftw_complex *fft_samples, long num_samples)
 {
 	long i;
 	double *ret;
 
-	/* TODO: argument checking */
+	assert(NULL != fft_samples);
+	assert(0 < num_samples);
 
 	ret = (double *) MALLOC_SAFELY(num_samples * sizeof(double));
 
 	for (i = 0; i < num_samples; ++i) {
 		ret[i] = sqrt(fft_samples[i][0] * fft_samples[i][0] + fft_samples[i][1] * fft_samples[i][1]);
+		ret[i] *= 10 * log10(ret[i]);
 	}
 
 	return ret;
@@ -696,8 +701,11 @@ struct note get_note_from_file(const char * const filename, double secs_to_sampl
 		return invalid_note;
 	}
 
-	/* TODO: error check secs_to_sample */
+	if (0.0 >= secs_to_sample) {
+		return invalid_note;
+	}
 
+	/* TODO: this needs to be more robust */
 	get_sound_file_metadata(filename, &sample_rate, &num_channels);
 	if (-1 == sample_rate || -1 == num_channels) {
 		return invalid_note;
@@ -705,17 +713,14 @@ struct note get_note_from_file(const char * const filename, double secs_to_sampl
 
 	num_samples = secs_to_sample * sample_rate;
 
+	/* TODO: more robust memory management and error detection */
 	samples = get_samples_from_file(filename, num_samples, &samples_returned);
 	if (NULL == samples || num_samples != samples_returned) {
 		free(samples);
 		return invalid_note;
 	}
 
-	if (NULL == (mono_samples = combine_channels(samples, num_samples, num_channels))) {
-		free(samples);
-		free(mono_samples);
-		return invalid_note;
-	}
+	mono_samples = combine_channels(samples, num_samples, num_channels);
 	free(samples);
 
 	if (NULL == (hannd_samples = apply_hann_function(mono_samples, num_samples))) {
@@ -732,13 +737,10 @@ struct note get_note_from_file(const char * const filename, double secs_to_sampl
 	}
 	free(hannd_samples);
 
-	if (NULL == (fft_magnitudes = get_fft_magnitudes(fft_samples, num_samples))) {
-		fftw_free(fft_samples);
-		free(fft_magnitudes);
-		return invalid_note;
-	}
+	fft_magnitudes = get_fft_magnitudes(fft_samples, num_samples);
 	fftw_free(fft_samples);
 
+	/* TODO: make this a function, and have it return the prominent freqs */
 	highest_magnitude = -1.0;
 	sample_num_of_highest_magnitude = -1;
 	for (i = 0; i < num_samples; ++i) {
@@ -752,5 +754,6 @@ struct note get_note_from_file(const char * const filename, double secs_to_sampl
 
 	free(fft_magnitudes);
 
+	/* TODO: make sure result is sane first? */
 	return get_exact_note(sample_num_of_highest_magnitude / secs_to_sample);
 }
