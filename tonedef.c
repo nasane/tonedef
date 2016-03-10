@@ -24,6 +24,10 @@
 static bool is_allowable_freq(double freq);
 static enum semitone_t *get_scale(enum semitone_t tonic, enum semitone_t *scale, int scale_length);
 static inline void *detect_oom(void *ptr);
+static void get_sample_rate_of_file(char *filename, int *sample_rate, int *num_channels);
+static double *combine_channels(double *samples, long num_samples, int num_channels);
+static double *get_fft_magnitudes(fftw_complex *fft_samples, long num_samples);
+static void get_sound_file_metadata(const char * const filename, int *sample_rate, int *num_channels);
 
 /*
  * Retrieves the semitone enumeration representative of the string argument.
@@ -456,13 +460,35 @@ enum semitone_t *get_chromatic_scale(enum semitone_t tonic)
 		sizeof(chromatic_scale) / sizeof(enum semitone_t));
 }
 
+/* TODO: return error code? */
+static void get_sound_file_metadata(const char * const filename, int *sample_rate, int *num_channels)
+{
+	SF_INFO sfinfo;
+	SNDFILE *file;
+
+	memset(&sfinfo, 0, sizeof(sfinfo));
+
+	if (NULL == filename) {
+		return;
+	}
+
+	if (NULL == (file = sf_open(filename, SFM_READ, &sfinfo))) {
+		return;
+	}
+
+	*sample_rate = sfinfo.samplerate;
+	*num_channels = sfinfo.channels;
+
+	sf_close(file);  /* TODO: error checking */
+}
+
 /* TODO: documentation */
-float *get_samples_from_file(char *filename, long samples_requested, long *samples_returned)
+double *get_samples_from_file(const char * const filename, long samples_requested, long *samples_returned)
 {
 	SNDFILE	*file;
 	SF_INFO	sfinfo;
-	float	*buf;
-	float	*ret;
+	double	*buf;
+	double	*ret;
 	int	audio_channels;
 	int	rd_cnt;
 	long	i;
@@ -488,23 +514,23 @@ float *get_samples_from_file(char *filename, long samples_requested, long *sampl
 	}
 
 	audio_channels = sfinfo.channels;
-	ret_bytes = audio_channels * samples_requested * sizeof(float);
-	ret = (float *) MALLOC_SAFELY(ret_bytes);
-	buf = (float *) MALLOC_SAFELY((audio_channels * AUDIO_SAMPLE_BUFSIZE) * sizeof(float));
+	ret_bytes = audio_channels * samples_requested * sizeof(double);
+	ret = (double *) MALLOC_SAFELY(ret_bytes);
+	buf = (double *) MALLOC_SAFELY((audio_channels * AUDIO_SAMPLE_BUFSIZE) * sizeof(double));
 	i = 0;
-	while (i < ret_bytes && 0 < (rd_cnt = sf_readf_float(file, buf, AUDIO_SAMPLE_BUFSIZE))) {
-		bytes_to_cpy = MIN(rd_cnt * audio_channels * sizeof(float), ret_bytes - i);
-		memcpy(ret + (i / sizeof(float)), buf, bytes_to_cpy);
+	while (i < ret_bytes && 0 < (rd_cnt = sf_readf_double(file, buf, AUDIO_SAMPLE_BUFSIZE))) {
+		bytes_to_cpy = MIN(rd_cnt * audio_channels * sizeof(double), ret_bytes - i);
+		memcpy(ret + (i / sizeof(double)), buf, bytes_to_cpy);
 		i += bytes_to_cpy;
 	}
 
-	*samples_returned = i / (audio_channels * sizeof(float));
-	sf_close(file);
+	*samples_returned = i / (audio_channels * sizeof(double));
+	sf_close(file);  /* TODO: error checking */
 	return ret;
 }
 
 /* TODO: documentation */
-int split_stereo_channels(const float * const samples, long num_samples, float **chan1, float **chan2)
+int split_stereo_channels(const double * const samples, long num_samples, double **chan1, double **chan2)
 {
 	long num_samples_per_chan;
 	long i;
@@ -525,8 +551,8 @@ int split_stereo_channels(const float * const samples, long num_samples, float *
 		return SPLIT_STEREO_CHANNELS_FAILURE_CODE;
 	}
 
-	*chan1 = (float *) CALLOC_SAFELY(num_samples, sizeof(float));
-	*chan2 = (float *) CALLOC_SAFELY(num_samples, sizeof(float));
+	*chan1 = (double *) CALLOC_SAFELY(num_samples, sizeof(double));
+	*chan2 = (double *) CALLOC_SAFELY(num_samples, sizeof(double));
 
 	for (i = 0; i < num_samples * STEREO_NUM_CHANNELS; ++i) {
 		if (0 == i % STEREO_NUM_CHANNELS) {
@@ -540,10 +566,10 @@ int split_stereo_channels(const float * const samples, long num_samples, float *
 }
 
 /* TODO: documentation */
-float *apply_hann_function(const float * const samples, long num_samples)
+double *apply_hann_function(const double * const samples, long num_samples)
 {
 	long i;
-	float *ret;
+	double *ret;
 
 	if (NULL == samples) {
 		return NULL;
@@ -553,7 +579,7 @@ float *apply_hann_function(const float * const samples, long num_samples)
 		return NULL;
 	}
 
-	ret = (float *) MALLOC_SAFELY(num_samples * sizeof(float));
+	ret = (double *) MALLOC_SAFELY(num_samples * sizeof(double));
 	for (i = 0; i < num_samples; ++i) {
 		ret[i] = samples[i]
 			* 0.5 * (1 - cos((2 * M_PI * i) / (num_samples - 1)));
@@ -577,4 +603,153 @@ static inline void *detect_oom(void *ptr)
 	}
 
 	return ptr;
+}
+
+/* TODO: documentation */
+fftw_complex *get_fft(double *samples, long num_samples)
+{
+	fftw_complex *ret;
+	fftw_plan plan;
+
+	if (NULL == samples) {
+		return NULL;
+	}
+
+	if (0 > num_samples) {
+		return NULL;
+	}
+
+	ret = (fftw_complex *) MALLOC_SAFELY(num_samples * sizeof(fftw_complex));
+	if (NULL == (plan = fftw_plan_dft_r2c_1d(num_samples, samples, ret, FFTW_ESTIMATE))) {
+		return NULL;
+	}
+
+	fftw_execute(plan);
+	fftw_destroy_plan(plan);
+
+	return ret;
+}
+
+static double *combine_channels(double *samples, long num_samples, int num_channels)
+{
+	int i;
+	int j;
+	double *ret;
+
+	/* TODO: argument checking */
+
+	ret = (double *) MALLOC_SAFELY(num_samples * sizeof(double));
+
+	for (i = 0; i < num_samples; ++i) {
+		ret[i] = 0.0;
+		for (j = 0; j < num_channels; ++j) {
+			ret[i] += samples[i * num_channels + j];
+		}
+		ret[i] /= num_channels;
+	}
+
+	return ret;
+}
+
+static double *get_fft_magnitudes(fftw_complex *fft_samples, long num_samples)
+{
+	long i;
+	double *ret;
+
+	/* TODO: argument checking */
+
+	ret = (double *) MALLOC_SAFELY(num_samples * sizeof(double));
+
+	for (i = 0; i < num_samples; ++i) {
+		ret[i] = sqrt(fft_samples[i][0] * fft_samples[i][0] + fft_samples[i][1] * fft_samples[i][1]);
+	}
+
+	return ret;
+}
+
+/* TODO: look for potential integer overflows when interating over longs */
+/* TODO: write version to pick up all prominent notes */
+struct note get_note_from_file(const char * const filename, double secs_to_sample)
+{
+	int		sample_rate;
+	int		num_channels;
+	long		sample_num_of_highest_magnitude;
+	long		samples_returned;
+	long		num_samples;
+	long		i;
+	double *	samples;
+	double *	mono_samples;
+	double *	hannd_samples;
+	double *	fft_magnitudes;
+	double		highest_magnitude;
+	struct note	invalid_note;
+	fftw_complex *	fft_samples;
+
+	/* initialize as invalid note for error checking purposes */
+	invalid_note.semitone	= UNKNOWN_SEMITONE;
+	invalid_note.octave	= INVALID_OCTAVE;
+	invalid_note.cents	= INVALID_CENTS	;
+
+	if (NULL == filename) {
+		/* TODO: print out error message */
+		return invalid_note;
+	}
+
+	/* TODO: error check secs_to_sample */
+
+	get_sound_file_metadata(filename, &sample_rate, &num_channels);
+	if (-1 == sample_rate || -1 == num_channels) {
+		return invalid_note;
+	}
+
+	num_samples = secs_to_sample * sample_rate;
+
+	samples = get_samples_from_file(filename, num_samples, &samples_returned);
+	if (NULL == samples || num_samples != samples_returned) {
+		free(samples);
+		return invalid_note;
+	}
+
+	if (NULL == (mono_samples = combine_channels(samples, num_samples, num_channels))) {
+		free(samples);
+		free(mono_samples);
+		return invalid_note;
+	}
+	free(samples);
+
+	if (NULL == (hannd_samples = apply_hann_function(mono_samples, num_samples))) {
+		free(mono_samples);
+		free(hannd_samples);
+		return invalid_note;
+	}
+	free(mono_samples);
+
+	if (NULL == (fft_samples = get_fft(hannd_samples, num_samples))) {
+		free(hannd_samples);
+		free(fft_samples);
+		return invalid_note;
+	}
+	free(hannd_samples);
+
+	if (NULL == (fft_magnitudes = get_fft_magnitudes(fft_samples, num_samples))) {
+		free(fft_samples);
+		free(fft_magnitudes);
+		return invalid_note;
+	}
+	fftw_free(fft_samples);
+
+	highest_magnitude = -1.0;
+	sample_num_of_highest_magnitude = -1;
+	for (i = 0; i < num_samples; ++i) {
+		if (fft_magnitudes[i] > highest_magnitude) {
+			highest_magnitude = fft_magnitudes[i];
+			sample_num_of_highest_magnitude = i;
+		}
+	}
+
+	/* TODO: error check results */
+
+	free(fft_magnitudes);
+
+	return get_exact_note(sample_num_of_highest_magnitude / secs_to_sample);
 }

@@ -4,15 +4,20 @@
 #include <stdlib.h>
 #include <string.h>
 #include "tonedef.h"
+#include <fftw3.h>
+
+#define HALF_SECOND_SAMPLE_COUNT	22050
 
 int main(int argc, const char *argv[])
 {
 	long samples_returned;
-	float *a4_wav_samples;
-	float *a4_wav_samples_hannd;
-	float *a4_wav_samples_left;
-	float *a4_wav_samples_right;
+	double *wav_samples;
+	double *wav_samples_hannd;
+	double *wav_samples_left;
+	double *wav_samples_right;
 	struct note test_note;
+	struct note note_from_file;
+	struct note n;
 	char *semitone;
 	enum semitone_t *scale;
 	enum semitone_t c_major_scale[] = {C, D, E, F, G, A, B, UNKNOWN_SEMITONE};
@@ -24,6 +29,7 @@ int main(int argc, const char *argv[])
 	enum semitone_t e_chromatic_scale[] = {E, F, Gb, G, Ab, A, Bb, B, C, Db, D, Eb, UNKNOWN_SEMITONE};
 	enum semitone_t a_harmonic_minor_scale[] = {A, B, C, D, E, F, Ab, UNKNOWN_SEMITONE};
 	enum semitone_t g_melodic_minor_scale[] = {G, A, Bb, C, D, E, Gb, UNKNOWN_SEMITONE};
+	fftw_complex *fft_samples;
 
 	test_note = get_exact_note(440.0);
 	if (test_note.semitone != A || test_note.octave != 4 || test_note.cents != 0.0) {
@@ -269,32 +275,32 @@ int main(int argc, const char *argv[])
 	}
 	free(scale);
 
-	a4_wav_samples = get_samples_from_file("a4.wav", 12, &samples_returned);
+	wav_samples = get_samples_from_file("a4.wav", 12, &samples_returned);
 
-	if (fabs(a4_wav_samples[0] - 0.0000000000) > 0.00001) {
+	if (fabs(wav_samples[0] - 0.0000000000) > 0.00001) {
 		return 1;
 	}
 
-	if (fabs(a4_wav_samples[3] - 0.0621588230) > 0.00001) {
+	if (fabs(wav_samples[3] - 0.0621588230) > 0.00001) {
 		return 1;
 	}
 
-	if (fabs(a4_wav_samples[4] - 0.1240735054) > 0.00001) {
+	if (fabs(wav_samples[4] - 0.1240735054) > 0.00001) {
 		return 1;
 	}
 
-	if (fabs(a4_wav_samples[7] - 0.1855007410) > 0.00001) {
+	if (fabs(wav_samples[7] - 0.1855007410) > 0.00001) {
 		return 1;
 	}
 
-	if (fabs(a4_wav_samples[8] - 0.2461992502) > 0.00001) {
+	if (fabs(wav_samples[8] - 0.2461992502) > 0.00001) {
 		return 1;
 	}
 
-	if (fabs(a4_wav_samples[11] - 0.3059304953) > 0.00001) {
+	if (fabs(wav_samples[11] - 0.3059304953) > 0.00001) {
 		return 1;
 	}
-	free(a4_wav_samples);
+	free(wav_samples);
 
 	if (NULL != get_samples_from_file(NULL, 12, &samples_returned)) {
 		return 1;
@@ -312,57 +318,57 @@ int main(int argc, const char *argv[])
 		return 1;
 	}
 
-	a4_wav_samples = get_samples_from_file("a4.wav", 24, &samples_returned);
+	wav_samples = get_samples_from_file("a4.wav", 24, &samples_returned);
 
 	if (24 != samples_returned) {
 		return 1;
 	}
 
-	if (-1 != split_stereo_channels(NULL, 24, &a4_wav_samples_left, &a4_wav_samples_right)) {
+	if (-1 != split_stereo_channels(NULL, 24, &wav_samples_left, &wav_samples_right)) {
 		return 1;
 	}
 
-	if (-1 != split_stereo_channels(a4_wav_samples, -123, &a4_wav_samples_left, &a4_wav_samples_right)) {
+	if (-1 != split_stereo_channels(wav_samples, -123, &wav_samples_left, &wav_samples_right)) {
 		return 1;
 	}
 
-	if (-1 != split_stereo_channels(a4_wav_samples, 24, NULL, &a4_wav_samples_right)) {
+	if (-1 != split_stereo_channels(wav_samples, 24, NULL, &wav_samples_right)) {
 		return 1;
 	}
 
-	if (-1 != split_stereo_channels(a4_wav_samples, 24, &a4_wav_samples_left, NULL)) {
+	if (-1 != split_stereo_channels(wav_samples, 24, &wav_samples_left, NULL)) {
 		return 1;
 	}
 
-	if (0 != split_stereo_channels(a4_wav_samples, 24, &a4_wav_samples_left, &a4_wav_samples_right)) {
+	if (0 != split_stereo_channels(wav_samples, 24, &wav_samples_left, &wav_samples_right)) {
 		return 1;
 	}
 
-	if (fabs(a4_wav_samples_left[3] - 0.1855007410) > 0.00001) {
+	if (fabs(wav_samples_left[3] - 0.1855007410) > 0.00001) {
 		return 1;
 	}
 
-	if (fabs(a4_wav_samples_left[7] - 0.4215573072) > 0.00001) {
+	if (fabs(wav_samples_left[7] - 0.4215573072) > 0.00001) {
 		return 1;
 	}
 
-	if (fabs(a4_wav_samples_left[11] - 0.6312451363) > 0.00001) {
+	if (fabs(wav_samples_left[11] - 0.6312451363) > 0.00001) {
 		return 1;
 	}
 
-	if (fabs(a4_wav_samples_right[3] - 0.1855007410) > 0.00001) {
+	if (fabs(wav_samples_right[3] - 0.1855007410) > 0.00001) {
 		return 1;
 	}
 
-	if (fabs(a4_wav_samples_right[7] - 0.4215573072) > 0.00001) {
+	if (fabs(wav_samples_right[7] - 0.4215573072) > 0.00001) {
 		return 1;
 	}
 
-	if (fabs(a4_wav_samples_right[11] - 0.6312451363) > 0.00001) {
+	if (fabs(wav_samples_right[11] - 0.6312451363) > 0.00001) {
 		return 1;
 	}
 
-	if (NULL != apply_hann_function(a4_wav_samples_left, -34)) {
+	if (NULL != apply_hann_function(wav_samples_left, -34)) {
 		return 1;
 	}
 
@@ -370,24 +376,104 @@ int main(int argc, const char *argv[])
 		return 1;
 	}
 
-	a4_wav_samples_hannd = apply_hann_function(a4_wav_samples_left, 24);
+	wav_samples_hannd = apply_hann_function(wav_samples_left, 24);
 
-	if (fabs(a4_wav_samples_hannd[0] - 0.0000000000) > 0.00001) {
+	if (fabs(wav_samples_hannd[0] - 0.0000000000) > 0.00001) {
 		return 1;
 	}
 
-	if (fabs(a4_wav_samples_hannd[6] - 0.1946656853) > 0.00001) {
+	if (fabs(wav_samples_hannd[6] - 0.1946656853) > 0.00001) {
 		return 1;
 	}
 
-	if (fabs(a4_wav_samples_hannd[20] - 0.1496363133) > 0.00001) {
+	if (fabs(wav_samples_hannd[20] - 0.1496363133) > 0.00001) {
 		return 1;
 	}
 
-	free(a4_wav_samples_hannd);
-	free(a4_wav_samples_left);
-	free(a4_wav_samples_right);
-	free(a4_wav_samples);
+	free(wav_samples_hannd);
+	free(wav_samples_left);
+	free(wav_samples_right);
+	free(wav_samples);
+
+	wav_samples = get_samples_from_file("f5-a7.wav", HALF_SECOND_SAMPLE_COUNT, &samples_returned);
+	if (NULL == wav_samples || HALF_SECOND_SAMPLE_COUNT != samples_returned) {
+		return 1;
+	}
+
+	if (0 != split_stereo_channels(wav_samples, HALF_SECOND_SAMPLE_COUNT, &wav_samples_left, &wav_samples_right)) {
+		return 1;
+	}
+
+	if (NULL == (wav_samples_hannd = apply_hann_function(wav_samples_left, HALF_SECOND_SAMPLE_COUNT))) {
+		return 1;
+	}
+
+	if (NULL == (fft_samples = get_fft(wav_samples_hannd, HALF_SECOND_SAMPLE_COUNT))) {
+		return 1;
+	}
+
+	double max_j = 0.0;
+	double max_j_i = -1;
+	for (int i = 0; i < HALF_SECOND_SAMPLE_COUNT; ++i) {
+		double j = sqrt(fft_samples[i][0]*fft_samples[i][0] + fft_samples[i][1]*fft_samples[i][1]);
+		if (j > max_j) {
+			max_j = j;
+			max_j_i = i;
+		}
+	}
+
+	double freq = max_j_i * 2.0;
+	n = get_exact_note(freq);
+	printf("%s %d %.10f cents\n", get_semitone_str(n.semitone, true), n.octave, n.cents);
+
+	free(wav_samples_hannd);
+	free(wav_samples_left);
+	free(wav_samples_right);
+	free(wav_samples);
+	fftw_free(fft_samples);
+
+	wav_samples = get_samples_from_file("f5-a7.wav", HALF_SECOND_SAMPLE_COUNT, &samples_returned);
+	if (NULL == wav_samples || HALF_SECOND_SAMPLE_COUNT != samples_returned) {
+		return 1;
+	}
+
+	if (0 != split_stereo_channels(wav_samples, HALF_SECOND_SAMPLE_COUNT, &wav_samples_left, &wav_samples_right)) {
+		return 1;
+	}
+
+	if (NULL == (wav_samples_hannd = apply_hann_function(wav_samples_right, HALF_SECOND_SAMPLE_COUNT))) {
+		return 1;
+	}
+
+	if (NULL == (fft_samples = get_fft(wav_samples_hannd, HALF_SECOND_SAMPLE_COUNT))) {
+		return 1;
+	}
+
+	max_j = 0.0;
+	max_j_i = -1;
+	for (int i = 0; i < HALF_SECOND_SAMPLE_COUNT; ++i) {
+		double j = sqrt(fft_samples[i][0]*fft_samples[i][0] + fft_samples[i][1]*fft_samples[i][1]);
+		if (j > max_j) {
+			max_j = j;
+			max_j_i = i;
+		}
+	}
+
+	freq = max_j_i * 2.0;
+	n = get_exact_note(freq);
+	printf("%s %d %.10f cents\n", get_semitone_str(n.semitone, true), n.octave, n.cents);
+
+	free(wav_samples_hannd);
+	free(wav_samples_left);
+	free(wav_samples_right);
+	free(wav_samples);
+	fftw_free(fft_samples);
+
+	note_from_file = get_note_from_file("a4.wav", .75);
+	printf("%s %d %.2f cents\n", get_semitone_str(note_from_file.semitone, false), note_from_file.octave, note_from_file.cents);
+
+	note_from_file = get_note_from_file("g#5-piano.wav", 1.23);
+	printf("%s %d %.2f cents\n", get_semitone_str(note_from_file.semitone, false), note_from_file.octave, note_from_file.cents);
 
 	return 0;
 }

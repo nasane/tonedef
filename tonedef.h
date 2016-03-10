@@ -7,6 +7,8 @@
 #ifndef TONEDEF_H
 #define TONEDEF_H
 
+#include <fftw3.h>
+
 /* lowest octave number accepted */
 #define OCTAVE_MIN		0
 
@@ -92,8 +94,10 @@ enum semitone_t	*get_natural_minor_scale(enum semitone_t tonic);
 enum semitone_t	*get_harmonic_minor_scale(enum semitone_t tonic);
 enum semitone_t	*get_melodic_minor_scale(enum semitone_t tonic);
 enum semitone_t	*get_chromatic_scale(enum semitone_t tonic);
-float		*get_samples_from_file(char *filename, long samples_requested, long *samples_returned);
-float		*apply_hann_function(const float * const samples, long num_samples);
-int		split_stereo_channels(const float * const samples, long num_samples, float **chan1, float **chan2);
+double		*get_samples_from_file(const char * const filename, long samples_requested, long *samples_returned);
+double		*apply_hann_function(const double * const samples, long num_samples);
+int		split_stereo_channels(const double * const samples, long num_samples, double **chan1, double **chan2);
+fftw_complex	*get_fft(double *samples, long num_samples);
+struct note	get_note_from_file(const char * const filename, double secs_to_sample);
 
 #endif
