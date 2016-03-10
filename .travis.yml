@@ -15,6 +15,6 @@ install:
   - tar -xzvf fftw-3.3.4.tar.gz
   - cd fftw-3.3.4 && ./configure --enable-shared && make && make check && sudo make install && cd ..
 script:
-  - make && make tests && env LD_LIBRARY_PATH=./ ./test
+  - make && make tests && env LD_LIBRARY_PATH=$LD_LIBRARY_PATH:./ ./test
 after_success:
   - coveralls --gcov-options '\-lp'
