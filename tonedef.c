@@ -667,7 +667,7 @@ static double *get_fft_magnitudes(fftw_complex *fft_samples, long num_samples)
 
 	for (i = 0; i < num_samples; ++i) {
 		ret[i] = sqrt(fft_samples[i][0] * fft_samples[i][0] + fft_samples[i][1] * fft_samples[i][1]);
-		ret[i] *= 10 * log10(ret[i]);
+		ret[i] = 10 * log10(ret[i]);
 	}
 
 	return ret;
