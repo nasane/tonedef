@@ -67,6 +67,41 @@ enum semitone_t
 	UNKNOWN_SEMITONE = -1, C, Db, D, Eb, E, F, Gb, G, Ab, A, Bb, B
 };
 
+/* TODO: documentation, put in separate file */
+enum chord_t
+{
+	UNKNOWN_CHORD_TYPE = -1,
+	MAJOR_TRIAD,
+	MINOR_TRIAD,
+	AUGMENTED_TRIAD,
+	DIMINISHED_TRIAD,
+	DIMINISHED_SEVENTH,
+	HALF_DIMINISHED_SEVENTH,
+	MINOR_SEVENTH,
+	MINOR_MAJOR_SEVENTH,
+	DOMINANT_SEVENTH,
+	MAJOR_SEVENTH,
+	AUGMENTED_SEVENTH,
+	AUGMENTED_MAJOR_SEVENTH,
+	DOMINANT_NINTH,
+	DOMINANT_ELEVENTH,
+	DOMINANT_THIRTEENTH,
+	SEVENTH_AUGMENTED_FIFTH,
+	SEVENTH_FLAT_NINTH,
+	SEVENTH_SHARP_NINTH,
+	SEVENTH_AUGMENTED_ELEVENTH,
+	SEVENTH_FLAT_THIRTEENTH,
+	ADD_NINE,
+	ADD_FOURTH,
+	ADD_SIXTH,
+	SIX_NINE,
+	MIXED_THIRD,
+	SUS2,
+	SUS4,
+	JAZZ_SUS
+	/* TOOD: this is not yet a complete list */
+};
+
 /*
  * A basic struct for a musical tone.
  *
@@ -79,6 +114,18 @@ struct note
 	enum semitone_t	semitone;
 	int		octave;
 	double		cents;
+};
+
+/*
+ * A lightweight wrapper for building a singly-linked list of notes.
+ *
+ * note : the encapsulated note
+ * next : the next node in the list (NULL if we're at the end)
+ */
+struct note_node
+{
+	struct note		note;
+	struct note_node *	next;
 };
 
 /* functions provided by this library */
