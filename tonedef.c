@@ -464,11 +464,17 @@ enum semitone_t *get_chromatic_scale(enum semitone_t tonic)
 		sizeof(chromatic_scale) / sizeof(enum semitone_t));
 }
 
-/* TODO: return error code? */
+/*
+ * This function retrieves the sample rate and number of channels in the audio
+ * file, storing them in the respective arguments.
+ *
+ * If there are problems with the file, the sample rate and channel count are
+ * set to -1.  Otherwise, these values should be set as expected.
+ */
 static void get_sound_file_metadata(const char * const filename, int *sample_rate, int *num_channels)
 {
-	SF_INFO sfinfo;
-	SNDFILE *file;
+	SF_INFO	sfinfo;
+	SNDFILE	*file;
 
 	assert(NULL != sample_rate);
 	assert(NULL != num_channels);
@@ -483,10 +489,12 @@ static void get_sound_file_metadata(const char * const filename, int *sample_rat
 		return;
 	}
 
+	if (0 != sf_close(file)) {
+		return;
+	}
+
 	*sample_rate = sfinfo.samplerate;
 	*num_channels = sfinfo.channels;
-
-	sf_close(file);  /* TODO: error checking */
 }
 
 /* TODO: documentation */
@@ -574,7 +582,7 @@ int split_stereo_channels(const double * const samples, long num_samples, double
 /* TODO: documentation */
 double *apply_hann_function(const double * const samples, long num_samples)
 {
-	long i;
+	long	i;
 	double *ret;
 
 	if (NULL == samples) {
@@ -614,8 +622,8 @@ static inline void *detect_oom(void *ptr)
 /* TODO: documentation */
 fftw_complex *get_fft(double *samples, long num_samples)
 {
-	fftw_complex *ret;
-	fftw_plan plan;
+	fftw_complex *	ret;
+	fftw_plan	plan;
 
 	if (NULL == samples) {
 		return NULL;
@@ -651,9 +659,8 @@ static double *combine_channels(double *samples, long num_samples, int num_chann
 	for (i = 0; i < num_samples; ++i) {
 		ret[i] = 0.0;
 		for (j = 0; j < num_channels; ++j) {
-			ret[i] += samples[i * num_channels + j];
+			ret[i] += samples[i * num_channels + j] / num_channels;
 		}
-		ret[i] /= num_channels;
 	}
 
 	return ret;
@@ -848,54 +855,81 @@ struct note get_note_from_file(const char * const filename, double secs_to_sampl
 	invalid_note.cents	= INVALID_CENTS	;
 
 	if (NULL == filename) {
-		/* TODO: print out error message */
+		fprintf(stderr, "filename is null\n");
 		return invalid_note;
 	}
 
 	if (0.0 >= secs_to_sample) {
+		fprintf(stderr, "secs_to_sample is less than zero\n");
 		return invalid_note;
 	}
 
-	/* TODO: this needs to be more robust */
+	/* get the sample rate and number of channels in the file */
 	get_sound_file_metadata(filename, &sample_rate, &num_channels);
 	if (-1 == sample_rate || -1 == num_channels) {
+		fprintf(stderr, "could not retrieve sound file metadata; does the file exist?\n");
 		return invalid_note;
 	}
 
+	/* get the number of samples we'll be working with */
 	num_samples = secs_to_sample * sample_rate;
 
-	/* TODO: more robust memory management and error detection */
+	/*
+	 * Get the samples from the file.
+	 *
+	 * If the the file is gone or we don't get the requested number of
+	 * samples back, we return an invalid note.
+	 */
 	samples = get_samples_from_file(filename, num_samples, &samples_returned);
 	if (NULL == samples || num_samples != samples_returned) {
+		fprintf(stderr, "could not access file or retrieve requested number of samples from file\n");
 		FREE_SAFELY(samples);
 		return invalid_note;
 	}
 
+	/* combine all the channels into one */
 	mono_samples = combine_channels(samples, num_samples, num_channels);
 	FREE_SAFELY(samples);
 
+	/* apply the Hanning function to our window of samples */
 	if (NULL == (hannd_samples = apply_hann_function(mono_samples, num_samples))) {
+		fprintf(stderr, "could not apply hanning function; chances are there is a bigger problem\n");
 		FREE_SAFELY(mono_samples);
 		FREE_SAFELY(hannd_samples);
 		return invalid_note;
 	}
 	FREE_SAFELY(mono_samples);
 
+	/* get the Fast Fourier Transform of our samples */
 	if (NULL == (fft_samples = get_fft(hannd_samples, num_samples))) {
+		fprintf(stderr, "could not calculate fft\n");
 		FREE_SAFELY(hannd_samples);
 		FREE_SAFELY(fft_samples);
 		return invalid_note;
 	}
 	FREE_SAFELY(hannd_samples);
 
+	/*
+	 * The FFT output array is all complex numbers.  We need to calculate
+	 * the magnitude of each output value in order to reveal the frequencies
+	 * that we care about.
+	 */
 	fft_magnitudes = get_fft_magnitudes(fft_samples, num_samples);
 	fftw_free(fft_samples);
 	fft_samples = NULL;
 
-	/* TODO: make this a function, and have it return the prominent freqs */
+	/* get the FFT sample index that has the highest magnitude */
 	sample_num_of_highest_magnitude = get_index_of_maximum(fft_magnitudes, num_samples);
 	FREE_SAFELY(fft_magnitudes);
 
-	/* TODO: make sure result is sane first? */
+	/*
+	 * Finally, get the note.
+	 *
+	 * The frequency is simply the sample number in our FFT divided by the
+	 * number of seconds that we sampled.  This is because we have
+	 * num_samples samples in our FFT and secs_to_sample = num_samples /
+	 * sample_rate.  It also makes sense that the denominator here would be
+	 * in seconds since hertz = seconds^-1.
+	 */
 	return get_exact_note(sample_num_of_highest_magnitude / secs_to_sample);
 }
