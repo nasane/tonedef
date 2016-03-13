@@ -4,3 +4,4 @@
 *.gcno
 test
 libtonedef.so
+.DS_Store

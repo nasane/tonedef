@@ -10,6 +10,7 @@
 
 int main(int argc, const char *argv[])
 {
+	double bogus_samples[1];
 	long samples_returned;
 	double *wav_samples;
 	double *wav_samples_hannd;
@@ -415,13 +416,26 @@ int main(int argc, const char *argv[])
 		return 1;
 	}
 
-	note_from_file = get_note_from_file("a4.wav", .75);
+	note_from_file = get_note_from_file("a4.wav", 0.5);
 	if (A != note_from_file.semitone || 4 != note_from_file.octave || fabs(note_from_file.cents - 0.0000000000) > 0.00001) {
 		return 1;
 	}
 
-	note_from_file = get_note_from_file("g#5-piano.wav", 1.23);
+	note_from_file = get_note_from_file("g#5-piano.wav", 0.234);
 	if (Ab != note_from_file.semitone || 5 != note_from_file.octave || fabs(note_from_file.cents - 5.6681983644) > 0.00001) {
+		return 1;
+	}
+
+	note_from_file = get_note_from_file("f4-piano.wav", 0.345);
+	if (F != note_from_file.semitone || 4 != note_from_file.octave || fabs(note_from_file.cents - -6.9648619035) > 0.00001) {
+		return 1;
+	}
+
+	if (NULL != get_fft(NULL, 12345)) {
+		return 1;
+	}
+
+	if (NULL != get_fft(bogus_samples, -123)) {
 		return 1;
 	}
 

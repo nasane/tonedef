@@ -15,7 +15,7 @@
 #include <string.h>
 #include "tonedef.h"
 
-#define MIN(a, b)		a < b ? a : b
+#define MIN(a, b)		((a < b) ? (a) : (b))
 #define AUDIO_SAMPLE_BUFSIZE	256
 #define MALLOC_SAFELY(a)	detect_oom(malloc(a))
 #define CALLOC_SAFELY(a, b)	detect_oom(calloc(a, b))
@@ -28,6 +28,9 @@ static void 			get_sample_rate_of_file(char *filename, int *sample_rate, int *nu
 static double *			combine_channels(double *samples, long num_samples, int num_channels);
 static double *			get_fft_magnitudes(fftw_complex *fft_samples, long num_samples);
 static void			get_sound_file_metadata(const char * const filename, int *sample_rate, int *num_channels);
+static double *			get_avg_magnitude_diff_function(const double * const samples, long num_samples, int sample_rate);
+static double *			get_weighted_autocorrelation_function(double *acf, double *amdf, long num_samples);
+
 
 /*
  * Retrieves the semitone enumeration representative of the string argument.
@@ -667,7 +670,115 @@ static double *get_fft_magnitudes(fftw_complex *fft_samples, long num_samples)
 
 	for (i = 0; i < num_samples; ++i) {
 		ret[i] = sqrt(fft_samples[i][0] * fft_samples[i][0] + fft_samples[i][1] * fft_samples[i][1]);
-		ret[i] = 10 * log10(ret[i]);
+		//ret[i] = 10 * log10(ret[i]);
+	}
+
+	return ret;
+}
+
+static double *get_autocorrelation_function(const double * const samples, long num_samples, int sample_rate)
+{
+	double *ret;
+	long tau;
+	struct note lowest_note;
+	struct note highest_note;
+	long min_tau;
+	long max_tau;
+	long iterations;
+	long i;
+
+	assert(NULL != samples);
+	assert(0 < num_samples);
+	assert(0 < sample_rate);
+
+	lowest_note.semitone	= C;  /* the "lowest" semitone enumeration */
+	lowest_note.octave	= OCTAVE_MIN;
+	lowest_note.cents	= -(SEMITONE_INTERVAL_CENTS / 2.0);  /* -50.0 */
+	max_tau = (1.0 / get_freq(&lowest_note)) * sample_rate;
+
+	highest_note.semitone	= B;  /* the "highest" semitone enumeration */
+	highest_note.octave	= OCTAVE_MAX;
+	highest_note.cents	= SEMITONE_INTERVAL_CENTS / 2.0;  /* +50.0 */
+	min_tau = (1.0 / get_freq(&highest_note)) * sample_rate;
+
+	max_tau = MIN(max_tau, num_samples);
+
+	/* if this isn't true, then we have bigger problems */
+	assert(min_tau < max_tau);
+
+	ret = (double *) CALLOC_SAFELY(num_samples, sizeof(double));
+
+	for (tau = min_tau; tau < max_tau; ++tau) {
+
+		iterations = num_samples - tau - 1;
+		ret[tau] = 0.0;
+		for (i = 0; i < iterations; ++i) {
+			ret[tau] += samples[i] * samples[i + tau];
+		}
+		// ret[tau] *= 1.0 / iterations;
+	}
+
+	return ret;
+}
+
+static double *get_avg_magnitude_diff_function(const double * const samples, long num_samples, int sample_rate)
+{
+	double *ret;
+	long tau;
+	struct note lowest_note;
+	struct note highest_note;
+	long min_tau;
+	long max_tau;
+	long iterations;
+	long i;
+
+	assert(NULL != samples);
+	assert(0 < num_samples);
+	assert(0 < sample_rate);
+
+	lowest_note.semitone	= C;  /* the "lowest" semitone enumeration */
+	lowest_note.octave	= OCTAVE_MIN;
+	lowest_note.cents	= -(SEMITONE_INTERVAL_CENTS / 2.0);  /* -50.0 */
+	max_tau = (1.0 / get_freq(&lowest_note)) * sample_rate;
+
+	highest_note.semitone	= B;  /* the "highest" semitone enumeration */
+	highest_note.octave	= OCTAVE_MAX;
+	highest_note.cents	= SEMITONE_INTERVAL_CENTS / 2.0;  /* +50.0 */
+	min_tau = (1.0 / get_freq(&highest_note)) * sample_rate;
+
+	max_tau = MIN(max_tau, num_samples);
+
+	/* if this isn't true, then we have bigger problems */
+	assert(min_tau < max_tau);
+
+	ret = (double *) CALLOC_SAFELY(num_samples, sizeof(double));
+
+	for (tau = min_tau; tau < MIN(max_tau, num_samples); ++tau) {
+
+		iterations = num_samples - tau - 1;
+		ret[tau] = 0.0;
+		for (i = 0; i < iterations; ++i) {
+			ret[tau] += samples[i] - samples[i + tau];
+		}
+		// ret[tau] *= 1.0 / iterations;
+	}
+
+	return ret;
+}
+
+static double *get_weighted_autocorrelation_function(double *acf, double *amdf, long num_samples)
+{
+	double *ret;
+	long i;
+
+	assert(NULL != acf);
+	assert(NULL != amdf);
+	assert(0 < num_samples);
+
+	ret = (double *) MALLOC_SAFELY(num_samples * sizeof(double));
+
+	for (i = 0; i < num_samples; ++i) {
+		ret[i] = acf[i] / (amdf[i] + 1);
 	}
 
 	return ret;
@@ -722,6 +833,7 @@ struct note get_note_from_file(const char * const filename, double secs_to_sampl
 
 	mono_samples = combine_channels(samples, num_samples, num_channels);
 	free(samples);
+	samples = NULL;
 
 	if (NULL == (hannd_samples = apply_hann_function(mono_samples, num_samples))) {
 		free(mono_samples);
@@ -729,6 +841,7 @@ struct note get_note_from_file(const char * const filename, double secs_to_sampl
 		return invalid_note;
 	}
 	free(mono_samples);
+	mono_samples = NULL;
 
 	if (NULL == (fft_samples = get_fft(hannd_samples, num_samples))) {
 		free(hannd_samples);
@@ -736,9 +849,11 @@ struct note get_note_from_file(const char * const filename, double secs_to_sampl
 		return invalid_note;
 	}
 	free(hannd_samples);
+	hannd_samples = NULL;
 
 	fft_magnitudes = get_fft_magnitudes(fft_samples, num_samples);
 	fftw_free(fft_samples);
+	fft_samples = NULL;
 
 	/* TODO: make this a function, and have it return the prominent freqs */
 	highest_magnitude = -1.0;
@@ -753,6 +868,7 @@ struct note get_note_from_file(const char * const filename, double secs_to_sampl
 	/* TODO: error check results */
 
 	free(fft_magnitudes);
+	fft_magnitudes = NULL;
 
 	/* TODO: make sure result is sane first? */
 	return get_exact_note(sample_num_of_highest_magnitude / secs_to_sample);

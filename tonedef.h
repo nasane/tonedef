@@ -13,7 +13,7 @@
 #define OCTAVE_MIN		0
 
 /* highest octave number accepted */
-#define OCTAVE_MAX		12
+#define OCTAVE_MAX		8
 
 /* notes/octave in 12-tone equal temperament */
 #define SEMITONES_PER_OCTAVE	12
