@@ -19,7 +19,7 @@
 #define AUDIO_SAMPLE_BUFSIZE	512
 #define MALLOC_SAFELY(a)	detect_oom(malloc(a))
 #define CALLOC_SAFELY(a, b)	detect_oom(calloc(a, b))
-#define FREE_SAFELY(a)		free(a); a = NULL;
+#define FREE_SAFELY(a)		free(a); a = NULL
 
 /* function prototypes for static functions */
 static bool			is_allowable_freq(double freq);
@@ -29,8 +29,9 @@ static void 			get_sample_rate_of_file(char *filename, int *sample_rate, int *nu
 static double *			combine_channels(double *samples, long num_samples, int num_channels);
 static double *			get_fft_magnitudes(fftw_complex *fft_samples, long num_samples);
 static void			get_sound_file_metadata(const char * const filename, int *sample_rate, int *num_channels);
-static double *			get_avg_magnitude_diff_function(const double * const samples, long num_samples, int sample_rate);
-static double *			get_weighted_autocorrelation_function(double *acf, double *amdf, long num_samples);
+//static double *		get_autocorrelation_function(const double * const samples, long num_samples, int sample_rate)
+//static double *		get_avg_magnitude_diff_function(const double * const samples, long num_samples, int sample_rate);
+//static double *		get_weighted_autocorrelation_function(double *acf, double *amdf, long num_samples);
 static long			get_index_of_maximum(double *array, long array_len);
 
 /*
@@ -54,10 +55,12 @@ enum semitone_t get_semitone(const char * const semitone)
 	enum semitone_t	ret;
 
 	if (NULL == semitone) {
+		fprintf(stderr, "semitone argument is null\n");
 		return UNKNOWN_SEMITONE;
 	}
 
 	if (2 < strlen(semitone) || 1 > strlen(semitone)) {
+		fprintf(stderr, "semitone argument can only be 1 or 2 characters\n");
 		return UNKNOWN_SEMITONE;
 	}
 
@@ -82,6 +85,7 @@ enum semitone_t get_semitone(const char * const semitone)
 		 * about!
 		 */
 		if ('\0' == steps[i + 1]) {
+			fprintf(stderr, "unknown semitone '%s'\n", semitone);
 			return UNKNOWN_SEMITONE;
 		}
 	}
@@ -119,6 +123,7 @@ char *get_semitone_str(enum semitone_t semitone, bool prefer_flat)
 					  "F#", "G",  "G#", "A",  "A#", "B"};
 
 	if (semitone < C || semitone > B) {
+		fprintf(stderr, "invalid semitone '%d'\n", semitone);
 		return NULL;
 	}
 
@@ -337,6 +342,7 @@ struct note get_exact_note(double freq)
 enum semitone_t get_fifth(enum semitone_t semitone)
 {
 	if (C > semitone || B < semitone) {
+		fprintf(stderr, "invalid semitone '%d'\n", semitone);
 		return UNKNOWN_SEMITONE;
 	}
 
@@ -355,6 +361,7 @@ enum semitone_t get_fifth(enum semitone_t semitone)
  enum semitone_t get_fourth(enum semitone_t semitone)
  {
 	if (C > semitone || B < semitone) {
+		fprintf(stderr, "invalid semitone '%d'\n", semitone);
 		return UNKNOWN_SEMITONE;
 	}
 
@@ -377,6 +384,7 @@ static enum semitone_t *get_scale(enum semitone_t tonic, enum semitone_t *scale,
 	assert(UNKNOWN_SEMITONE == scale[scale_length - 1]);
 
 	if (C > tonic || B < tonic) {
+		fprintf(stderr, "invalid tonic '%d'\n", tonic);
 		return NULL;
 	}
 
@@ -506,19 +514,21 @@ double *get_samples_from_file(const char * const filename, long samples_requeste
 	double	*ret;
 	int	audio_channels;
 	int	rd_cnt;
-	long	i;
+	long	bytes_written;
 	long	ret_bytes;
 	long	bytes_to_cpy;
+
+	if (NULL == samples_returned) {
+		fprintf(stderr, "samples_returned cannot be NULL\n");
+		return NULL;
+	}
+	*samples_returned = -1;
 
 	if (NULL == filename) {
 		return NULL;
 	}
 
 	if (0 >= samples_requested) {
-		return NULL;
-	}
-
-	if (NULL == samples_returned) {
 		return NULL;
 	}
 
@@ -531,37 +541,47 @@ double *get_samples_from_file(const char * const filename, long samples_requeste
 	ret_bytes = audio_channels * samples_requested * sizeof(double);
 	ret = (double *) MALLOC_SAFELY(ret_bytes);
 	buf = (double *) MALLOC_SAFELY((audio_channels * AUDIO_SAMPLE_BUFSIZE) * sizeof(double));
-	i = 0;
-	while (i < ret_bytes && 0 < (rd_cnt = sf_readf_double(file, buf, AUDIO_SAMPLE_BUFSIZE))) {
-		bytes_to_cpy = MIN(rd_cnt * audio_channels * sizeof(double), ret_bytes - i);
-		memcpy(ret + (i / sizeof(double)), buf, bytes_to_cpy);
-		i += bytes_to_cpy;
+	bytes_written = 0;
+	while (bytes_written < ret_bytes && 0 < (rd_cnt = sf_readf_double(file, buf, AUDIO_SAMPLE_BUFSIZE))) {
+		bytes_to_cpy = MIN(rd_cnt * audio_channels * sizeof(double), ret_bytes - bytes_written);
+		memcpy(ret + (bytes_written / sizeof(double)), buf, bytes_to_cpy);
+		bytes_written += bytes_to_cpy;
+	}
+	FREE_SAFELY(buf);
+
+	if (0 != sf_close(file)) {
+		FREE_SAFELY(ret);
+		return NULL;
 	}
 
-	*samples_returned = i / (audio_channels * sizeof(double));
-	sf_close(file);  /* TODO: error checking */
+	*samples_returned = bytes_written / (audio_channels * sizeof(double));
 	return ret;
 }
 
-/* TODO: documentation */
+/* TODO: documentation, perhaps make generic */
 int split_stereo_channels(const double * const samples, long num_samples, double **chan1, double **chan2)
 {
 	long num_samples_per_chan;
 	long i;
+
+	if (NULL == chan1) {
+		if (chan2 != NULL) {
+			*chan2 = NULL;
+		}
+		return SPLIT_STEREO_CHANNELS_FAILURE_CODE;
+	}
+	*chan1 = NULL;
+
+	if (NULL == chan2) {
+		return SPLIT_STEREO_CHANNELS_FAILURE_CODE;
+	}
+	*chan2 = NULL;
 
 	if (NULL == samples) {
 		return SPLIT_STEREO_CHANNELS_FAILURE_CODE;
 	}
 
 	if (0 > num_samples) {
-		return SPLIT_STEREO_CHANNELS_FAILURE_CODE;
-	}
-
-	if (NULL == chan1) {
-		return SPLIT_STEREO_CHANNELS_FAILURE_CODE;
-	}
-
-	if (NULL == chan2) {
 		return SPLIT_STEREO_CHANNELS_FAILURE_CODE;
 	}
 
