@@ -30,7 +30,7 @@ int main(int argc, const char *argv[])
 	double bogus_samples[1];
 	long samples_returned;
 	double *wav_samples, *wav_samples_hannd, *wav_samples_left, *wav_samples_right;
-	struct note test_note, note_from_file, n;
+	struct note test_note, note_from_file, n, test_note_2;
 	char *semitone;
 	enum semitone_t *scale;
 	enum semitone_t c_major_scale[] = {C, D, E, F, G, A, B, UNKNOWN_SEMITONE};
@@ -43,6 +43,8 @@ int main(int argc, const char *argv[])
 	enum semitone_t a_harmonic_minor_scale[] = {A, B, C, D, E, F, Ab, UNKNOWN_SEMITONE};
 	enum semitone_t g_melodic_minor_scale[] = {G, A, Bb, C, D, E, Gb, UNKNOWN_SEMITONE};
 	fftw_complex *fft_samples;
+	struct chord chord;
+	struct note_node node, node2;
 
 	LOG("get_exact_note");
 
@@ -210,6 +212,26 @@ int main(int argc, const char *argv[])
 
 	assert(NULL == get_fft(NULL, 12345));
 	assert(NULL == get_fft(bogus_samples, -123));
+
+	LOG("get_chord");
+
+	chord = get_chord(NULL);
+	assert(chord.chord = UNKNOWN_CHORD_TYPE && chord.tonic == UNKNOWN_SEMITONE);
+
+	/* TODO: tests after this comment are placeholders for coverage */
+
+	test_note.semitone = E;
+	test_note.octave = 2;
+	test_note.cents = 12.345;
+	test_note_2.semitone = B;
+	test_note_2.octave = 4;
+	test_note_2.cents = 1.5;
+	node.note = test_note;
+	node.next = &node2;
+	node2.note = test_note_2;
+	node2.next = NULL;
+	chord = get_chord(&node);
+	assert(chord.chord = UNKNOWN_CHORD_TYPE && chord.tonic == UNKNOWN_SEMITONE);
 
 	return 0;
 }

@@ -70,7 +70,6 @@ enum semitone_t
 /* TODO: documentation, put in separate file */
 enum chord_t
 {
-	UNKNOWN_CHORD_TYPE = -1,
 	MAJOR_TRIAD,
 	MINOR_TRIAD,
 	AUGMENTED_TRIAD,
@@ -98,7 +97,8 @@ enum chord_t
 	MIXED_THIRD,
 	SUS2,
 	SUS4,
-	JAZZ_SUS
+	JAZZ_SUS,
+	UNKNOWN_CHORD_TYPE
 	/* TOOD: this is not yet a complete list */
 };
 
@@ -128,6 +128,14 @@ struct note_node
 	struct note_node *	next;
 };
 
+/* TODO: documentation */
+struct chord
+{
+	enum chord_t	chord;
+	enum semitone_t	tonic;
+	/* TODO: other fields, such as the "over" note for inverted chords */
+};
+
 /* functions provided by this library */
 double		get_freq(const struct note * const note);
 struct note	get_approx_note(double freq);
@@ -146,5 +154,6 @@ double		*apply_hann_function(const double * const samples, long num_samples);
 int		split_stereo_channels(const double * const samples, long num_samples, double **chan1, double **chan2);
 fftw_complex	*get_fft(double *samples, long num_samples);
 struct note	get_note_from_file(const char * const filename, double secs_to_sample);
+struct chord	get_chord(struct note_node *node);
 
 #endif

@@ -33,6 +33,9 @@ static void			get_sound_file_metadata(const char * const filename, int *sample_r
 //static double *		get_avg_magnitude_diff_function(const double * const samples, long num_samples, int sample_rate);
 //static double *		get_weighted_autocorrelation_function(double *acf, double *amdf, long num_samples);
 static long			get_index_of_maximum(double *array, long array_len);
+static void			get_semitones_in_chord(struct note_node *node, enum semitone_t *semitones);
+static int			compare_semitones(const void *a, const void *b);
+static void			get_chord_tonic_and_type(enum semitone_t *semitones, enum chord_t *chord, enum semitone_t *tonic);
 
 /*
  * Retrieves the semitone enumeration representative of the string argument.
@@ -952,4 +955,82 @@ struct note get_note_from_file(const char * const filename, double secs_to_sampl
 	 * in seconds since hertz = seconds^-1.
 	 */
 	return get_exact_note(sample_num_of_highest_magnitude / secs_to_sample);
+}
+
+static int compare_semitones(const void *a, const void *b)
+{
+     if (* (enum semitone_t *) a < * (enum semitone_t *) b) {
+	     return -1;
+     }
+
+     if (* (enum semitone_t *) a > * (enum semitone_t *) b) {
+	     return 1;
+     }
+
+     return 0;
+}
+
+static void get_semitones_in_chord(struct note_node *node, enum semitone_t *semitones)
+{
+	struct note_node *node_ptr;
+	int semitones_index;
+	int i;
+	bool already_added;
+
+	assert(NULL != node);
+	assert(NULL != semitones);
+
+	semitones_index = 0;
+	node_ptr = node;
+	while (NULL != node_ptr) {
+
+		already_added = false;
+		for (i = 0; i < semitones_index; ++i) {
+			if (node_ptr->note.semitone == semitones[i]) {
+				already_added = true;
+				break;
+			}
+		}
+
+		if (!already_added) {
+			semitones[semitones_index++] = node_ptr->note.semitone;
+		}
+
+		node_ptr = node_ptr->next;
+	}
+
+	qsort(semitones, semitones_index, sizeof(enum semitone_t), compare_semitones);
+	semitones[semitones_index] = UNKNOWN_SEMITONE;
+}
+
+static void get_chord_tonic_and_type(enum semitone_t *semitones, enum chord_t *chord, enum semitone_t *tonic)
+{
+	assert(NULL != semitones);
+	assert(NULL != chord);
+	assert(NULL != tonic);
+
+	*chord = UNKNOWN_CHORD_TYPE;
+	*tonic = UNKNOWN_SEMITONE;
+
+	/* TODO: rotate semitones in buffer until chord type matches, use offset to find tonic */
+}
+
+/* TODO: documentation */
+struct chord get_chord(struct note_node *node)
+{
+	struct chord ret;
+	enum semitone_t semitones[SEMITONES_PER_OCTAVE + 1];
+
+	ret.chord = UNKNOWN_CHORD_TYPE;
+	ret.tonic = UNKNOWN_SEMITONE;
+
+	if (NULL == node) {
+		fprintf(stderr, "node cannot be NULL\n");
+		return ret;
+	}
+
+	get_semitones_in_chord(node, semitones);
+	get_chord_tonic_and_type(semitones, &(ret.chord), &(ret.tonic));
+
+	return ret;
 }
