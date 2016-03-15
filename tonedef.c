@@ -36,6 +36,11 @@ static long			get_index_of_maximum(double *array, long array_len);
 static void			get_semitones_in_chord(struct note_node *node, enum semitone_t *semitones);
 static int			compare_semitones(const void *a, const void *b);
 static void			get_chord_tonic_and_type(enum semitone_t *semitones, enum chord_t *chord, enum semitone_t *tonic);
+static void			rotate_semitones(enum semitone_t *semitones);
+static enum chord_t		get_chord_type(enum semitone_t *semitones);
+static bool			semitone_arrays_equal(enum semitone_t *ary1, enum semitone_t *ary2);
+static enum semitone_t		get_tonic(enum semitone_t *semitones, enum chord_t chord_type);
+static enum semitone_t *	get_semitones_for_chord_with_given_tonic(enum semitone_t tonic, enum chord_t chord_type);
 
 /*
  * Retrieves the semitone enumeration representative of the string argument.
@@ -972,10 +977,10 @@ static int compare_semitones(const void *a, const void *b)
 
 static void get_semitones_in_chord(struct note_node *node, enum semitone_t *semitones)
 {
-	struct note_node *node_ptr;
-	int semitones_index;
-	int i;
-	bool already_added;
+	struct note_node *	node_ptr;
+	int			semitones_index;
+	int			i;
+	bool			already_added;
 
 	assert(NULL != node);
 	assert(NULL != semitones);
@@ -1003,8 +1008,142 @@ static void get_semitones_in_chord(struct note_node *node, enum semitone_t *semi
 	semitones[semitones_index] = UNKNOWN_SEMITONE;
 }
 
+static void rotate_semitones(enum semitone_t *semitones)
+{
+	int i;
+
+	assert(NULL != semitones);
+
+	for (i = 0; semitones[i] != UNKNOWN_SEMITONE; ++i) {
+		semitones[i] = (semitones[i] + 1) % SEMITONES_PER_OCTAVE;
+	}
+	qsort(semitones, i, sizeof(enum semitone_t), compare_semitones);
+}
+
+static bool semitone_arrays_equal(enum semitone_t *ary1, enum semitone_t *ary2)
+{
+	int i;
+
+	assert(NULL != ary1);
+	assert(NULL != ary2);
+
+	for (i = 0; ary1[i] != UNKNOWN_SEMITONE; ++i) {
+		if (ary1[i] != ary2[i]) {
+			return false;
+		}
+	}
+
+	if (UNKNOWN_SEMITONE == ary1[i] && UNKNOWN_SEMITONE == ary2[i]) {
+		return true;
+	}
+
+	return false;
+}
+
+static enum chord_t get_chord_type(enum semitone_t *semitones)
+{
+	enum chord_t i;
+	enum semitone_t *c_chord;
+
+	for (i = (enum chord_t) 0; i != UNKNOWN_CHORD_TYPE; i = (enum chord_t) ((int) i + 1)) {
+
+		c_chord = get_semitones_for_chord_with_given_tonic(C, i);
+
+		/* temp handling while all the chord enums aren't defined in get_c_chord(...) */
+		//assert(NULL != c_chord);
+		if (NULL == c_chord) {
+			FREE_SAFELY(c_chord);
+			continue;
+		}
+
+		if (semitone_arrays_equal(c_chord, semitones)) {
+			FREE_SAFELY(c_chord);
+			return i;
+		}
+
+		FREE_SAFELY(c_chord);
+	}
+
+	return UNKNOWN_CHORD_TYPE;
+}
+
+static enum semitone_t *get_semitones_for_chord_with_given_tonic(enum semitone_t tonic, enum chord_t chord_type)
+{
+	enum semitone_t *ret;
+	enum semitone_t *i;
+
+	/* TODO: make asserts more robust */
+	assert(UNKNOWN_SEMITONE != tonic);
+	assert(UNKNOWN_CHORD_TYPE != chord_type);
+
+	ret = (enum semitone_t *) malloc((SEMITONES_PER_OCTAVE + 1) * sizeof(enum semitone_t));
+	i = ret;
+
+	switch(chord_type) {
+
+	case(MAJOR_TRIAD):
+		*i++ = (C + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (E + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (G + (int) tonic) % SEMITONES_PER_OCTAVE;
+		qsort(ret, i - ret, sizeof(enum semitone_t), compare_semitones);
+		*i   = UNKNOWN_SEMITONE;
+		break;
+
+	case(MINOR_TRIAD):
+		*i++ = (C + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (Eb + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (G + (int) tonic) % SEMITONES_PER_OCTAVE;
+		qsort(ret, i - ret, sizeof(enum semitone_t), compare_semitones);
+		*i   = UNKNOWN_SEMITONE;
+		break;
+
+	case(MAJOR_SEVENTH):
+		*i++ = (C + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (E + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (G + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (B + (int) tonic) % SEMITONES_PER_OCTAVE;
+		qsort(ret, i - ret, sizeof(enum semitone_t), compare_semitones);
+		*i   = UNKNOWN_SEMITONE;
+		break;
+
+	default:
+		/* TODO: uncomment when all chords are defined here */
+		//fprintf(stderr, "no rule for chord_type '%d'\n", chord_type);
+		FREE_SAFELY(ret);
+		return NULL;
+		break;
+	}
+
+	return ret;
+}
+
+static enum semitone_t get_tonic(enum semitone_t *semitones, enum chord_t chord_type)
+{
+	enum semitone_t tonic;
+	enum semitone_t *potential_chord_semitones;
+
+	for (tonic = (enum semitone_t) 0; tonic <= B; tonic = (enum semitone_t) ((int) tonic + 1)) {
+
+		potential_chord_semitones = get_semitones_for_chord_with_given_tonic(tonic, chord_type);
+		assert(NULL != potential_chord_semitones);
+
+		if (semitone_arrays_equal(potential_chord_semitones, semitones)) {
+			FREE_SAFELY(potential_chord_semitones);
+			return tonic;
+		}
+
+		FREE_SAFELY(potential_chord_semitones);
+	}
+
+	return UNKNOWN_SEMITONE;
+}
+
 static void get_chord_tonic_and_type(enum semitone_t *semitones, enum chord_t *chord, enum semitone_t *tonic)
 {
+	int i;
+	enum semitone_t *semitones_cpy;
+
+	/* TODO: much more robust assertions */
 	assert(NULL != semitones);
 	assert(NULL != chord);
 	assert(NULL != tonic);
@@ -1012,7 +1151,34 @@ static void get_chord_tonic_and_type(enum semitone_t *semitones, enum chord_t *c
 	*chord = UNKNOWN_CHORD_TYPE;
 	*tonic = UNKNOWN_SEMITONE;
 
-	/* TODO: rotate semitones in buffer until chord type matches, use offset to find tonic */
+	for (i = 0; semitones[i] != UNKNOWN_SEMITONE; ++i) {
+		// intentionally do nothing, we're just counting elements
+	}
+	qsort(semitones, i, sizeof(enum semitone_t), compare_semitones);
+
+	semitones_cpy = (enum semitone_t *) malloc((SEMITONES_PER_OCTAVE + 1) * sizeof(enum semitone_t));
+	for (i = 0; semitones[i] != UNKNOWN_SEMITONE; ++i) {
+		semitones_cpy[i] = semitones[i];
+	}
+	semitones_cpy[i] = UNKNOWN_SEMITONE;
+
+	i = 0;
+	while (i < SEMITONES_PER_OCTAVE && UNKNOWN_CHORD_TYPE == get_chord_type(semitones)) {
+		rotate_semitones(semitones);
+		++i;
+	}
+
+	if (UNKNOWN_CHORD_TYPE == get_chord_type(semitones)) {
+		return;
+	}
+
+	assert(i < SEMITONES_PER_OCTAVE);
+
+	*chord = get_chord_type(semitones);
+
+	/* TODO: get tonic correctly */
+	*tonic = get_tonic(semitones_cpy, *chord);
+	assert(UNKNOWN_SEMITONE != *tonic);
 }
 
 /* TODO: documentation */

@@ -23,14 +23,19 @@
 							}									\
 							FREE_SAFELY(scale);							\
 						}
-#define LOG(method_name)			printf("TEST LOG: Testing %s(...)\n", method_name)
+#define LOG(method_name)			printf("----- Testing %s(...) -----\n", method_name)
+#define SET_NOTE(note, semi, oct, cent)		{				\
+							note.semitone = semi;	\
+							note.octave = oct;	\
+							note.cents = cent;	\
+						}
 
 int main(int argc, const char *argv[])
 {
 	double bogus_samples[1];
 	long samples_returned;
 	double *wav_samples, *wav_samples_hannd, *wav_samples_left, *wav_samples_right;
-	struct note test_note, note_from_file, n, test_note_2;
+	struct note test_note, note_from_file, n, test_note_2, test_note_3, test_note_4;
 	char *semitone;
 	enum semitone_t *scale;
 	enum semitone_t c_major_scale[] = {C, D, E, F, G, A, B, UNKNOWN_SEMITONE};
@@ -44,7 +49,7 @@ int main(int argc, const char *argv[])
 	enum semitone_t g_melodic_minor_scale[] = {G, A, Bb, C, D, E, Gb, UNKNOWN_SEMITONE};
 	fftw_complex *fft_samples;
 	struct chord chord;
-	struct note_node node, node2;
+	struct note_node node, node2, node3, node4;
 
 	LOG("get_exact_note");
 
@@ -89,17 +94,13 @@ int main(int argc, const char *argv[])
 
 	LOG("get_freq");
 
-	test_note.semitone = UNKNOWN_SEMITONE;
-	test_note.octave = 4;
-	test_note.cents = 0;
+	SET_NOTE(test_note, UNKNOWN_SEMITONE, 4, 0.0);
 	assert(-1 == get_freq(&test_note));
 
-	test_note.semitone = B;
-	test_note.octave = OCTAVE_MAX + 5;
+	SET_NOTE(test_note, B, OCTAVE_MAX + 5, 0.0);
 	assert(-1 == get_freq(&test_note));
 
-	test_note.octave = 3;
-	test_note.cents = SEMITONE_INTERVAL_CENTS;
+	SET_NOTE(test_note, B, 3, SEMITONE_INTERVAL_CENTS);
 	assert(-1 == get_freq(&test_note));
 
 	LOG("get_fifth");
@@ -218,20 +219,59 @@ int main(int argc, const char *argv[])
 	chord = get_chord(NULL);
 	assert(chord.chord = UNKNOWN_CHORD_TYPE && chord.tonic == UNKNOWN_SEMITONE);
 
-	/* TODO: tests after this comment are placeholders for coverage */
-
-	test_note.semitone = E;
-	test_note.octave = 2;
-	test_note.cents = 12.345;
-	test_note_2.semitone = B;
-	test_note_2.octave = 4;
-	test_note_2.cents = 1.5;
+	SET_NOTE(test_note, D, 2, 0.123);
+	SET_NOTE(test_note_2, Gb, 4, 1.5);
+	SET_NOTE(test_note_3, A, 4, 2.235);
 	node.note = test_note;
 	node.next = &node2;
 	node2.note = test_note_2;
-	node2.next = NULL;
+	node2.next = &node3;
+	node3.note = test_note_3;
+	node3.next = NULL;
 	chord = get_chord(&node);
-	assert(chord.chord = UNKNOWN_CHORD_TYPE && chord.tonic == UNKNOWN_SEMITONE);
+	assert(MAJOR_TRIAD == chord.chord && D == chord.tonic);
+
+	SET_NOTE(test_note, F, 2, 0.123);
+	SET_NOTE(test_note_2, Ab, 4, 1.5);
+	SET_NOTE(test_note_3, C, 4, 2.235);
+	node.note = test_note;
+	node.next = &node2;
+	node2.note = test_note_2;
+	node2.next = &node3;
+	node3.note = test_note_3;
+	node3.next = NULL;
+	chord = get_chord(&node);
+	assert(MINOR_TRIAD == chord.chord && F == chord.tonic);
+
+	SET_NOTE(test_note, G, 2, 0.123);
+	SET_NOTE(test_note_2, B, 4, 1.5);
+	SET_NOTE(test_note_3, D, 4, 2.235);
+	SET_NOTE(test_note_4, Gb, 4, 0.00);
+	node.note = test_note;
+	node.next = &node2;
+	node2.note = test_note_2;
+	node2.next = &node3;
+	node3.note = test_note_3;
+	node3.next = &node4;
+	node4.note = test_note_4;
+	node4.next = NULL;
+	chord = get_chord(&node);
+	assert(MAJOR_SEVENTH == chord.chord && G == chord.tonic);
+
+	SET_NOTE(test_note, Bb, 2, 0.123);
+	SET_NOTE(test_note_2, D, 4, 1.5);
+	SET_NOTE(test_note_3, F, 4, 2.235);
+	SET_NOTE(test_note_4, Bb, 5, 0.00);
+	node.note = test_note;
+	node.next = &node2;
+	node2.note = test_note_2;
+	node2.next = &node3;
+	node3.note = test_note_3;
+	node3.next = &node4;
+	node4.note = test_note_4;
+	node4.next = NULL;
+	chord = get_chord(&node);
+	assert(MAJOR_TRIAD == chord.chord && Bb == chord.tonic);
 
 	return 0;
 }
