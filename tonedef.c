@@ -962,62 +962,114 @@ struct note get_note_from_file(const char * const filename, double secs_to_sampl
 	return get_exact_note(sample_num_of_highest_magnitude / secs_to_sample);
 }
 
+/*
+ * A basic comparator for using qsort on an array of enum semitone_t.
+ */
 static int compare_semitones(const void *a, const void *b)
 {
-     if (* (enum semitone_t *) a < * (enum semitone_t *) b) {
-	     return -1;
-     }
+	assert(NULL != a);
+	assert(NULL != b);
 
-     if (* (enum semitone_t *) a > * (enum semitone_t *) b) {
-	     return 1;
-     }
+	if (* (enum semitone_t *) a < * (enum semitone_t *) b) {
+		return -1;
+	}
 
-     return 0;
+	if (* (enum semitone_t *) a > * (enum semitone_t *) b) {
+		return 1;
+	}
+
+	return 0;
 }
 
+/*
+ * This function is used to retrieve the an array of semitones present in the
+ * link list of note_node represented by the "node" agrument.  The "node"
+ * argument should represent the head of this list.  The return array is stored
+ * in the semitones argument, which must already be allocated to hold a maximum
+ * of SEMITONES_PER_OCTAVE + 1 (effectively 13) of enum semitone_t.  The return
+ * array will be sorted and will be terminated by an UNKNOWN_SEMITONE upon
+ * successful completion of this function.
+ */
 static void get_semitones_in_chord(struct note_node *node, enum semitone_t *semitones)
 {
-	struct note_node *	node_ptr;
-	int			semitones_index;
-	int			i;
-	bool			already_added;
+	bool	already_added;
+	int	semitones_index;
+	int	i;
 
 	assert(NULL != node);
 	assert(NULL != semitones);
 
 	semitones_index = 0;
-	node_ptr = node;
-	while (NULL != node_ptr) {
+	while (NULL != node) {
 
+		/*
+		 * Make sure we haven't already added this semitone to our
+		 * return array.  This implementation doesn't care how many
+		 * Bb's are in your chord.
+		 */
 		already_added = false;
 		for (i = 0; i < semitones_index; ++i) {
-			if (node_ptr->note.semitone == semitones[i]) {
+			if (node->note.semitone == semitones[i]) {
 				already_added = true;
 				break;
 			}
 		}
 
 		if (!already_added) {
-			semitones[semitones_index++] = node_ptr->note.semitone;
+			semitones[semitones_index++] = node->note.semitone;
 		}
 
-		node_ptr = node_ptr->next;
+		node = node->next;  /* will be NULL after the last node */
 	}
 
+	/* sort the semitones based upon the semitone enumeration */
 	qsort(semitones, semitones_index, sizeof(enum semitone_t), compare_semitones);
-	semitones[semitones_index] = UNKNOWN_SEMITONE;
-}
 
+	/* terminate the array with an UNKNOWN_SEMITONE, like we said we would */
+	semitones[semitones_index] = UNKNOWN_SEMITONE;
+
+	/* check that everything seems relatively sane before returning */
+	for (i = 0; UNKNOWN_SEMITONE != semitones[i]; ++i) {
+		assert(UNKNOWN_SEMITONE < semitones[i]);
+		assert(B >= semitones[i]);
+	}
+	assert(semitones_index == i);
+	assert(semitones_index < SEMITONES_PER_OCTAVE + 1);
+}
+/*
+ * This function rotates all the semitones in the given semitone array
+ * (terminated by an UNKNOWN_SEMITONE) forward by one.  For example, given the
+ * following array:
+ *
+ *         {Db, E, Gb, A, UNKNOWN_SEMITONE}
+ *
+ * This function will alter the array to look like:
+ *
+ *         {D, F, A, Bb, UNKNOWN_SEMITONE}
+ *
+ * Note that while the input array does not necessarily need to be sorted, it
+ * will be sorted based upon the semitone_t enumeration upon return, and it will
+ * still be terminated by an UNKNOWN_SEMITONE.
+ */
 static void rotate_semitones(enum semitone_t *semitones)
 {
 	int i;
+	int j;
 
 	assert(NULL != semitones);
 
 	for (i = 0; semitones[i] != UNKNOWN_SEMITONE; ++i) {
 		semitones[i] = (semitones[i] + 1) % SEMITONES_PER_OCTAVE;
 	}
+
 	qsort(semitones, i, sizeof(enum semitone_t), compare_semitones);
+
+	/* check that everything seems relatively sane before returning */
+	for (j = 0; UNKNOWN_SEMITONE != semitones[j]; ++j) {
+		assert(UNKNOWN_SEMITONE < semitones[j]);
+		assert(B >= semitones[j]);
+	}
+	assert(i == j);
 }
 
 static bool semitone_arrays_equal(enum semitone_t *ary1, enum semitone_t *ary2)
@@ -1181,22 +1233,58 @@ static void get_chord_tonic_and_type(enum semitone_t *semitones, enum chord_t *c
 	assert(UNKNOWN_SEMITONE != *tonic);
 }
 
-/* TODO: documentation */
+/*
+ * This function retrieves the chord represented by "node" (the head of a list
+ * of note nodes).  If node is an illegal argument or the chord cannot be
+ * determined, an invalid struct chord is returned.  This struct will contain
+ * the UNKNOWN_* enumerations for each of its members.
+ *
+ * I try not to alter the node list passed in, but I make no promises unless
+ * "const" is specified.
+ */
 struct chord get_chord(struct note_node *node)
 {
-	struct chord ret;
-	enum semitone_t semitones[SEMITONES_PER_OCTAVE + 1];
+	struct chord	ret;
+	enum semitone_t	semitones[SEMITONES_PER_OCTAVE + 1];
 
+	/* initialize return chord to error values in case something goes wrong */
 	ret.chord = UNKNOWN_CHORD_TYPE;
 	ret.tonic = UNKNOWN_SEMITONE;
 
+	/* basic argument validation */
 	if (NULL == node) {
 		fprintf(stderr, "node cannot be NULL\n");
 		return ret;
 	}
 
+	/*
+	 * First, we put the semitones of the chord into a sorted array.  This
+	 * array will be terminated with an UNKNOWN_SEMITONE, and can have a
+	 * maximum of SEMITONES_PER_OCTAVE + 1 elements (hence the declaration
+	 * at the beginning of this function.
+	 */
 	get_semitones_in_chord(node, semitones);
+
+	/*
+	 * Next, we do the real work (AKA finding the chord type and tonic).
+	 * The chord type is discovered first by shifting all the semitones and
+	 * checking for a match with a known C chord.  Once we know the chord
+	 * type, we try all possible tonic notes (this is at most 12).
+	 *
+	 * If we are able to match a chord, then we _should_ be able to match a
+	 * tonic note, since they both use
+	 * get_semitones_for_chord_with_given_tonic(...)!
+	 */
 	get_chord_tonic_and_type(semitones, &(ret.chord), &(ret.tonic));
+
+	/*
+	 * If once of our members is still UNKNOWN_* somehow, we must make them
+	 * all UNKNOWN_*.
+	 */
+	 if (UNKNOWN_CHORD_TYPE == ret.chord || UNKNOWN_SEMITONE == ret.tonic) {
+		 ret.chord = UNKNOWN_CHORD_TYPE;
+		 ret.tonic = UNKNOWN_SEMITONE;
+	 }
 
 	return ret;
 }
