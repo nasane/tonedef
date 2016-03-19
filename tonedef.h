@@ -90,7 +90,7 @@ enum chord_t
 	SEVENTH_SHARP_NINTH,
 	SEVENTH_AUGMENTED_ELEVENTH,
 	SEVENTH_FLAT_THIRTEENTH,
-	ADD_NINE,
+	ADD_NINE,  /* TODO: the "ADD" chords aren't fully named */
 	ADD_FOURTH,
 	ADD_SIXTH,
 	SIX_NINE,
@@ -133,7 +133,7 @@ struct chord
 {
 	enum chord_t	chord;
 	enum semitone_t	tonic;
-	/* TODO: other fields, such as the "over" note for inverted chords */
+	enum semitone_t bass;
 };
 
 /* functions provided by this library */

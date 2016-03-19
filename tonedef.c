@@ -41,6 +41,7 @@ static enum chord_t		get_chord_type(enum semitone_t *semitones);
 static bool			semitone_arrays_equal(enum semitone_t *ary1, enum semitone_t *ary2);
 static enum semitone_t		get_tonic(enum semitone_t *semitones, enum chord_t chord_type);
 static enum semitone_t *	get_semitones_for_chord_with_given_tonic(enum semitone_t tonic, enum chord_t chord_type);
+static enum semitone_t		get_bass_note_in_chord(struct note_node *node);
 
 /*
  * Retrieves the semitone enumeration representative of the string argument.
@@ -569,7 +570,6 @@ double *get_samples_from_file(const char * const filename, long samples_requeste
 /* TODO: documentation, perhaps make generic */
 int split_stereo_channels(const double * const samples, long num_samples, double **chan1, double **chan2)
 {
-	long num_samples_per_chan;
 	long i;
 
 	if (NULL == chan1) {
@@ -838,7 +838,6 @@ static long get_index_of_maximum(double *array, long array_len)
 	long	maximum_index;
 	long	i;
 	double	maximum;
-	bool	first_iteration;
 
 	assert(NULL != array);
 	assert(0 < array_len);
@@ -869,7 +868,6 @@ struct note get_note_from_file(const char * const filename, double secs_to_sampl
 	long		sample_num_of_highest_magnitude;
 	long		samples_returned;
 	long		num_samples;
-	long		i;
 	double *	samples;
 	double *	mono_samples;
 	double *	hannd_samples;
@@ -981,6 +979,30 @@ static int compare_semitones(const void *a, const void *b)
 	return 0;
 }
 
+static enum semitone_t get_bass_note_in_chord(struct note_node *node)
+{
+	double lowest_freq;
+	enum semitone_t lowest_semitone;
+
+	assert(NULL != node);
+
+	lowest_freq = get_freq(&(node->note));
+	lowest_semitone = node->note.semitone;
+	node = node->next;
+
+	while (NULL != node) {
+
+		if (get_freq(&(node->note)) < lowest_freq) {
+			lowest_freq = get_freq(&(node->note));
+			lowest_semitone = node->note.semitone;
+		}
+
+		node = node->next;
+	}
+
+	return lowest_semitone;
+}
+
 /*
  * This function is used to retrieve the an array of semitones present in the
  * link list of note_node represented by the "node" agrument.  The "node"
@@ -1022,19 +1044,13 @@ static void get_semitones_in_chord(struct note_node *node, enum semitone_t *semi
 		node = node->next;  /* will be NULL after the last node */
 	}
 
+	assert(semitones_index < SEMITONES_PER_OCTAVE + 1);
+
 	/* sort the semitones based upon the semitone enumeration */
 	qsort(semitones, semitones_index, sizeof(enum semitone_t), compare_semitones);
 
 	/* terminate the array with an UNKNOWN_SEMITONE, like we said we would */
 	semitones[semitones_index] = UNKNOWN_SEMITONE;
-
-	/* check that everything seems relatively sane before returning */
-	for (i = 0; UNKNOWN_SEMITONE != semitones[i]; ++i) {
-		assert(UNKNOWN_SEMITONE < semitones[i]);
-		assert(B >= semitones[i]);
-	}
-	assert(semitones_index == i);
-	assert(semitones_index < SEMITONES_PER_OCTAVE + 1);
 }
 /*
  * This function rotates all the semitones in the given semitone array
@@ -1054,22 +1070,17 @@ static void get_semitones_in_chord(struct note_node *node, enum semitone_t *semi
 static void rotate_semitones(enum semitone_t *semitones)
 {
 	int i;
-	int j;
 
+	/* validate that the input array looks sane */
 	assert(NULL != semitones);
 
+	/* do the rotates */
 	for (i = 0; semitones[i] != UNKNOWN_SEMITONE; ++i) {
 		semitones[i] = (semitones[i] + 1) % SEMITONES_PER_OCTAVE;
 	}
 
+	/* put it back in order */
 	qsort(semitones, i, sizeof(enum semitone_t), compare_semitones);
-
-	/* check that everything seems relatively sane before returning */
-	for (j = 0; UNKNOWN_SEMITONE != semitones[j]; ++j) {
-		assert(UNKNOWN_SEMITONE < semitones[j]);
-		assert(B >= semitones[j]);
-	}
-	assert(i == j);
 }
 
 static bool semitone_arrays_equal(enum semitone_t *ary1, enum semitone_t *ary2)
@@ -1096,6 +1107,8 @@ static enum chord_t get_chord_type(enum semitone_t *semitones)
 {
 	enum chord_t i;
 	enum semitone_t *c_chord;
+
+	assert(NULL != semitones);
 
 	for (i = (enum chord_t) 0; i != UNKNOWN_CHORD_TYPE; i = (enum chord_t) ((int) i + 1)) {
 
@@ -1128,7 +1141,7 @@ static enum semitone_t *get_semitones_for_chord_with_given_tonic(enum semitone_t
 	assert(UNKNOWN_SEMITONE != tonic);
 	assert(UNKNOWN_CHORD_TYPE != chord_type);
 
-	ret = (enum semitone_t *) malloc((SEMITONES_PER_OCTAVE + 1) * sizeof(enum semitone_t));
+	ret = (enum semitone_t *) MALLOC_SAFELY((SEMITONES_PER_OCTAVE + 1) * sizeof(enum semitone_t));
 	i = ret;
 
 	switch(chord_type) {
@@ -1137,34 +1150,147 @@ static enum semitone_t *get_semitones_for_chord_with_given_tonic(enum semitone_t
 		*i++ = (C + (int) tonic) % SEMITONES_PER_OCTAVE;
 		*i++ = (E + (int) tonic) % SEMITONES_PER_OCTAVE;
 		*i++ = (G + (int) tonic) % SEMITONES_PER_OCTAVE;
-		qsort(ret, i - ret, sizeof(enum semitone_t), compare_semitones);
-		*i   = UNKNOWN_SEMITONE;
 		break;
 
 	case(MINOR_TRIAD):
-		*i++ = (C + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (C  + (int) tonic) % SEMITONES_PER_OCTAVE;
 		*i++ = (Eb + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (G + (int) tonic) % SEMITONES_PER_OCTAVE;
-		qsort(ret, i - ret, sizeof(enum semitone_t), compare_semitones);
-		*i   = UNKNOWN_SEMITONE;
+		*i++ = (G  + (int) tonic) % SEMITONES_PER_OCTAVE;
 		break;
+
+	/* TODO: the notes in the Caug chord are the same as Eaug and G#aug */
+	case(AUGMENTED_TRIAD):
+		*i++ = (C  + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (E  + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (Ab + (int) tonic) % SEMITONES_PER_OCTAVE;
+		break;
+
+	case(DIMINISHED_TRIAD):
+		*i++ = (C  + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (Eb + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (Gb + (int) tonic) % SEMITONES_PER_OCTAVE;
+		break;
+
+	case(DIMINISHED_SEVENTH):
+		*i++ = (C  + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (Eb + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (Gb + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (A  + (int) tonic) % SEMITONES_PER_OCTAVE;
+		break;
+
+	case(HALF_DIMINISHED_SEVENTH):
+		*i++ = (C  + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (Eb + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (Gb + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (Bb + (int) tonic) % SEMITONES_PER_OCTAVE;
+		break;
+
+	/* TODO: may be a major-add-6th */
+	case(MINOR_SEVENTH):
+		*i++ = (C  + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (Eb + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (G  + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (Bb + (int) tonic) % SEMITONES_PER_OCTAVE;
+		break;
+
+	case(MINOR_MAJOR_SEVENTH):
+		*i++ = (C  + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (Eb + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (G  + (int) tonic) % SEMITONES_PER_OCTAVE;
+		*i++ = (B  + (int) tonic) % SEMITONES_PER_OCTAVE;
+		break;
+
+	case(DOMINANT_SEVENTH):
+		FREE_SAFELY(ret);
+		return NULL;
 
 	case(MAJOR_SEVENTH):
 		*i++ = (C + (int) tonic) % SEMITONES_PER_OCTAVE;
 		*i++ = (E + (int) tonic) % SEMITONES_PER_OCTAVE;
 		*i++ = (G + (int) tonic) % SEMITONES_PER_OCTAVE;
 		*i++ = (B + (int) tonic) % SEMITONES_PER_OCTAVE;
-		qsort(ret, i - ret, sizeof(enum semitone_t), compare_semitones);
-		*i   = UNKNOWN_SEMITONE;
 		break;
 
-	default:
-		/* TODO: uncomment when all chords are defined here */
-		//fprintf(stderr, "no rule for chord_type '%d'\n", chord_type);
+	case(AUGMENTED_SEVENTH):
 		FREE_SAFELY(ret);
 		return NULL;
-		break;
+
+	case(AUGMENTED_MAJOR_SEVENTH):
+		FREE_SAFELY(ret);
+		return NULL;
+
+	case(DOMINANT_NINTH):
+		FREE_SAFELY(ret);
+		return NULL;
+
+	case(DOMINANT_ELEVENTH):
+		FREE_SAFELY(ret);
+		return NULL;
+
+	case(DOMINANT_THIRTEENTH):
+		FREE_SAFELY(ret);
+		return NULL;
+
+	case(SEVENTH_AUGMENTED_FIFTH):
+		FREE_SAFELY(ret);
+		return NULL;
+
+	case(SEVENTH_FLAT_NINTH):
+		FREE_SAFELY(ret);
+		return NULL;
+
+	case(SEVENTH_SHARP_NINTH):
+		FREE_SAFELY(ret);
+		return NULL;
+
+	case(SEVENTH_AUGMENTED_ELEVENTH):
+		FREE_SAFELY(ret);
+		return NULL;
+
+	case(SEVENTH_FLAT_THIRTEENTH):
+		FREE_SAFELY(ret);
+		return NULL;
+
+	case(ADD_NINE):
+		FREE_SAFELY(ret);
+		return NULL;
+
+	case(ADD_FOURTH):
+		FREE_SAFELY(ret);
+		return NULL;
+
+	case(ADD_SIXTH):
+		FREE_SAFELY(ret);
+		return NULL;
+
+	case(SIX_NINE):
+		FREE_SAFELY(ret);
+		return NULL;
+
+	case(MIXED_THIRD):
+		FREE_SAFELY(ret);
+		return NULL;
+
+	case(SUS2):
+		FREE_SAFELY(ret);
+		return NULL;
+
+	case(SUS4):
+		FREE_SAFELY(ret);
+		return NULL;
+
+	case(JAZZ_SUS):
+		FREE_SAFELY(ret);
+		return NULL;
+
+	default:
+		fprintf(stderr, "no rule for chord_type '%d'\n", chord_type);
+		FREE_SAFELY(ret);
+		return NULL;
 	}
+
+	qsort(ret, i - ret, sizeof(enum semitone_t), compare_semitones);
+	*i = UNKNOWN_SEMITONE;
 
 	return ret;
 }
@@ -1173,6 +1299,9 @@ static enum semitone_t get_tonic(enum semitone_t *semitones, enum chord_t chord_
 {
 	enum semitone_t tonic;
 	enum semitone_t *potential_chord_semitones;
+
+	assert(NULL != semitones);
+	assert((enum chord_t) 0 <= chord_type && UNKNOWN_CHORD_TYPE > chord_type);
 
 	for (tonic = (enum semitone_t) 0; tonic <= B; tonic = (enum semitone_t) ((int) tonic + 1)) {
 
@@ -1208,7 +1337,7 @@ static void get_chord_tonic_and_type(enum semitone_t *semitones, enum chord_t *c
 	}
 	qsort(semitones, i, sizeof(enum semitone_t), compare_semitones);
 
-	semitones_cpy = (enum semitone_t *) malloc((SEMITONES_PER_OCTAVE + 1) * sizeof(enum semitone_t));
+	semitones_cpy = (enum semitone_t *) MALLOC_SAFELY((SEMITONES_PER_OCTAVE + 1) * sizeof(enum semitone_t));
 	for (i = 0; semitones[i] != UNKNOWN_SEMITONE; ++i) {
 		semitones_cpy[i] = semitones[i];
 	}
@@ -1250,6 +1379,7 @@ struct chord get_chord(struct note_node *node)
 	/* initialize return chord to error values in case something goes wrong */
 	ret.chord = UNKNOWN_CHORD_TYPE;
 	ret.tonic = UNKNOWN_SEMITONE;
+	ret.bass  = UNKNOWN_SEMITONE;
 
 	/* basic argument validation */
 	if (NULL == node) {
@@ -1264,6 +1394,9 @@ struct chord get_chord(struct note_node *node)
 	 * at the beginning of this function.
 	 */
 	get_semitones_in_chord(node, semitones);
+
+	/* TODO: document */
+	ret.bass = get_bass_note_in_chord(node);
 
 	/*
 	 * Next, we do the real work (AKA finding the chord type and tonic).
@@ -1281,9 +1414,10 @@ struct chord get_chord(struct note_node *node)
 	 * If once of our members is still UNKNOWN_* somehow, we must make them
 	 * all UNKNOWN_*.
 	 */
-	 if (UNKNOWN_CHORD_TYPE == ret.chord || UNKNOWN_SEMITONE == ret.tonic) {
+	 if (UNKNOWN_CHORD_TYPE == ret.chord || UNKNOWN_SEMITONE == ret.tonic || UNKNOWN_SEMITONE == ret.bass) {
 		 ret.chord = UNKNOWN_CHORD_TYPE;
 		 ret.tonic = UNKNOWN_SEMITONE;
+		 ret.bass  = UNKNOWN_SEMITONE;
 	 }
 
 	return ret;

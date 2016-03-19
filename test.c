@@ -217,7 +217,7 @@ int main(int argc, const char *argv[])
 	LOG("get_chord");
 
 	chord = get_chord(NULL);
-	assert(chord.chord = UNKNOWN_CHORD_TYPE && chord.tonic == UNKNOWN_SEMITONE);
+	assert(chord.chord = UNKNOWN_CHORD_TYPE && chord.tonic == UNKNOWN_SEMITONE && chord.bass == UNKNOWN_SEMITONE);
 
 	SET_NOTE(test_note, D, 2, 0.123);
 	SET_NOTE(test_note_2, Gb, 4, 1.5);
@@ -229,7 +229,7 @@ int main(int argc, const char *argv[])
 	node3.note = test_note_3;
 	node3.next = NULL;
 	chord = get_chord(&node);
-	assert(MAJOR_TRIAD == chord.chord && D == chord.tonic);
+	assert(MAJOR_TRIAD == chord.chord && D == chord.tonic && D == chord.bass);
 
 	SET_NOTE(test_note, F, 2, 0.123);
 	SET_NOTE(test_note_2, Ab, 4, 1.5);
@@ -241,7 +241,7 @@ int main(int argc, const char *argv[])
 	node3.note = test_note_3;
 	node3.next = NULL;
 	chord = get_chord(&node);
-	assert(MINOR_TRIAD == chord.chord && F == chord.tonic);
+	assert(MINOR_TRIAD == chord.chord && F == chord.tonic && F == chord.bass);
 
 	SET_NOTE(test_note, G, 2, 0.123);
 	SET_NOTE(test_note_2, B, 4, 1.5);
@@ -256,12 +256,12 @@ int main(int argc, const char *argv[])
 	node4.note = test_note_4;
 	node4.next = NULL;
 	chord = get_chord(&node);
-	assert(MAJOR_SEVENTH == chord.chord && G == chord.tonic);
+	assert(MAJOR_SEVENTH == chord.chord && G == chord.tonic && G == chord.bass);
 
-	SET_NOTE(test_note, Bb, 2, 0.123);
+	SET_NOTE(test_note_4, Bb, 2, 0.123);
 	SET_NOTE(test_note_2, D, 4, 1.5);
 	SET_NOTE(test_note_3, F, 4, 2.235);
-	SET_NOTE(test_note_4, Bb, 5, 0.00);
+	SET_NOTE(test_note, F, 5, 0.00);
 	node.note = test_note;
 	node.next = &node2;
 	node2.note = test_note_2;
@@ -271,7 +271,7 @@ int main(int argc, const char *argv[])
 	node4.note = test_note_4;
 	node4.next = NULL;
 	chord = get_chord(&node);
-	assert(MAJOR_TRIAD == chord.chord && Bb == chord.tonic);
+	assert(MAJOR_TRIAD == chord.chord && Bb == chord.tonic && Bb == chord.bass);
 
 	return 0;
 }
