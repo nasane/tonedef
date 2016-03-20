@@ -9,6 +9,7 @@
 #include <fftw3.h>
 #include <math.h>
 #include <sndfile.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,6 +43,7 @@ static bool			semitone_arrays_equal(enum semitone_t *ary1, enum semitone_t *ary2
 static enum semitone_t		get_tonic(enum semitone_t *semitones, enum chord_t chord_type);
 static enum semitone_t *	get_semitones_for_chord_with_given_tonic(enum semitone_t tonic, enum chord_t chord_type);
 static enum semitone_t		get_bass_note_in_chord(struct note_node *node);
+static void			build_chord(enum semitone_t **chord, enum semitone_t tonic, int count, ...);
 
 /*
  * Retrieves the semitone enumeration representative of the string argument.
@@ -1132,13 +1134,29 @@ static enum chord_t get_chord_type(enum semitone_t *semitones)
 	return UNKNOWN_CHORD_TYPE;
 }
 
+static void build_chord(enum semitone_t **chord, enum semitone_t tonic, int count, ...)
+{
+	va_list semitones;
+	int i;
+
+	assert(NULL != chord);
+	assert(0 <= count);
+	assert(C <= tonic && B >= tonic);
+
+	va_start(semitones, count); /* Requires the last fixed parameter (to get the address) */
+	for (i = 0; i < count; ++i) {
+		*(*chord)++ = (va_arg(semitones, enum semitone_t) + (int) tonic) % SEMITONES_PER_OCTAVE;
+	}
+	va_end(semitones);
+}
+
 static enum semitone_t *get_semitones_for_chord_with_given_tonic(enum semitone_t tonic, enum chord_t chord_type)
 {
 	enum semitone_t *ret;
 	enum semitone_t *i;
 
 	/* TODO: make asserts more robust */
-	assert(UNKNOWN_SEMITONE != tonic);
+	assert(C <= tonic && B >= tonic);
 	assert(UNKNOWN_CHORD_TYPE != chord_type);
 
 	ret = (enum semitone_t *) MALLOC_SAFELY((SEMITONES_PER_OCTAVE + 1) * sizeof(enum semitone_t));
@@ -1147,89 +1165,67 @@ static enum semitone_t *get_semitones_for_chord_with_given_tonic(enum semitone_t
 	switch(chord_type) {
 
 	case(MAJOR_TRIAD):
-		*i++ = (C + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (E + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (G + (int) tonic) % SEMITONES_PER_OCTAVE;
+		build_chord(&i, tonic, 3, C, E, G);
 		break;
 
 	case(MINOR_TRIAD):
-		*i++ = (C  + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (Eb + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (G  + (int) tonic) % SEMITONES_PER_OCTAVE;
+		build_chord(&i, tonic, 3, C, Eb, G);
 		break;
 
 	/* TODO: the notes in the Caug chord are the same as Eaug and G#aug */
 	case(AUGMENTED_TRIAD):
-		*i++ = (C  + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (E  + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (Ab + (int) tonic) % SEMITONES_PER_OCTAVE;
+		build_chord(&i, tonic, 3, C, E, Ab);
 		break;
 
 	case(DIMINISHED_TRIAD):
-		*i++ = (C  + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (Eb + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (Gb + (int) tonic) % SEMITONES_PER_OCTAVE;
+		build_chord(&i, tonic, 3, C, Eb, Gb);
 		break;
 
 	case(DIMINISHED_SEVENTH):
-		*i++ = (C  + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (Eb + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (Gb + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (A  + (int) tonic) % SEMITONES_PER_OCTAVE;
+		build_chord(&i, tonic, 4, C, Eb, Gb, A);
 		break;
 
 	case(HALF_DIMINISHED_SEVENTH):
-		*i++ = (C  + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (Eb + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (Gb + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (Bb + (int) tonic) % SEMITONES_PER_OCTAVE;
+		build_chord(&i, tonic, 4, C, Eb, Gb, Bb);
 		break;
 
 	/* TODO: may be a major-add-6th */
 	case(MINOR_SEVENTH):
-		*i++ = (C  + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (Eb + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (G  + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (Bb + (int) tonic) % SEMITONES_PER_OCTAVE;
+		build_chord(&i, tonic, 4, C, Eb, G, Bb);
 		break;
 
 	case(MINOR_MAJOR_SEVENTH):
-		*i++ = (C  + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (Eb + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (G  + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (B  + (int) tonic) % SEMITONES_PER_OCTAVE;
+		build_chord(&i, tonic, 4, C, Eb, G, B);
 		break;
 
 	case(DOMINANT_SEVENTH):
-		FREE_SAFELY(ret);
-		return NULL;
+		build_chord(&i, tonic, 4, C, E, G, Bb);
+		break;
 
 	case(MAJOR_SEVENTH):
-		*i++ = (C + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (E + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (G + (int) tonic) % SEMITONES_PER_OCTAVE;
-		*i++ = (B + (int) tonic) % SEMITONES_PER_OCTAVE;
+		build_chord(&i, tonic, 4, C, E, G, B);
 		break;
 
 	case(AUGMENTED_SEVENTH):
-		FREE_SAFELY(ret);
-		return NULL;
+		build_chord(&i, tonic, 4, C, E, Ab, Bb);
+		break;
 
 	case(AUGMENTED_MAJOR_SEVENTH):
-		FREE_SAFELY(ret);
-		return NULL;
+		build_chord(&i, tonic, 4, C, E, Ab, B);
+		break;
 
 	case(DOMINANT_NINTH):
-		FREE_SAFELY(ret);
-		return NULL;
+		build_chord(&i, tonic, 5, C, E, G, Bb, D);
+		break;
 
+	/* TODO: the third is usually omitted for this one */
 	case(DOMINANT_ELEVENTH):
-		FREE_SAFELY(ret);
-		return NULL;
+		build_chord(&i, tonic, 6, C, E, G, Bb, D, F);
+		break;
 
 	case(DOMINANT_THIRTEENTH):
-		FREE_SAFELY(ret);
-		return NULL;
+		build_chord(&i, tonic, 7, C, E, G, Bb, D, F, A);
+		break;
 
 	case(SEVENTH_AUGMENTED_FIFTH):
 		FREE_SAFELY(ret);
