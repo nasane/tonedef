@@ -1,4 +1,4 @@
-# tonedef [![Build Status](https://travis-ci.org/nasane/tonedef.svg?branch=master)](https://travis-ci.org/nasane/tonedef) [![Coverage Status](https://coveralls.io/repos/github/nasane/tonedef/badge.svg?branch=master)](https://coveralls.io/github/nasane/tonedef?branch=master)
+# tonedef [![Build Status](https://travis-ci.org/nasane/tonedef.svg?branch=master)](https://travis-ci.org/nasane/tonedef) [![Coverage Status](https://coveralls.io/repos/github/nasane/tonedef/badge.svg?branch=master)](https://coveralls.io/github/nasane/tonedef?branch=master) [![License](http://img.shields.io/:license-gpl2-blue.svg?style=flat-square)](http://www.gnu.org/licenses/gpl-2.0.html)
 An attempt at a standard music library.
 
 # about
@@ -16,5 +16,5 @@ write a message, change a dynamic, or delete a few bars from everybody's tablet
 at once.  These are some of the "stretch" goals of this software.
 
 # copyright
-Copyright (C) 2016  Nathan Bossart
+Copyright (C) 2016  Nathan Bossart   
 Distributed via the GPLv2 license for now
