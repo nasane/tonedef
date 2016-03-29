@@ -35,8 +35,7 @@ int main(int argc, const char *argv[])
 	double bogus_samples[1];
 	long samples_returned;
 	double *wav_samples, *wav_samples_hannd, *wav_samples_left, *wav_samples_right;
-	struct note test_note, note_from_file, n, test_note_2, test_note_3, test_note_4;
-	char *semitone;
+	struct note test_note, note_from_file, test_note_2, test_note_3, test_note_4;
 	enum semitone_t *scale;
 	enum semitone_t c_major_scale[] = {C, D, E, F, G, A, B, UNKNOWN_SEMITONE};
 	enum semitone_t gb_major_scale[] = {Gb, Ab, Bb, B, Db, Eb, F, UNKNOWN_SEMITONE};
@@ -47,7 +46,6 @@ int main(int argc, const char *argv[])
 	enum semitone_t e_chromatic_scale[] = {E, F, Gb, G, Ab, A, Bb, B, C, Db, D, Eb, UNKNOWN_SEMITONE};
 	enum semitone_t a_harmonic_minor_scale[] = {A, B, C, D, E, F, Ab, UNKNOWN_SEMITONE};
 	enum semitone_t g_melodic_minor_scale[] = {G, A, Bb, C, D, E, Gb, UNKNOWN_SEMITONE};
-	fftw_complex *fft_samples;
 	struct chord chord;
 	struct note_node node, node2, node3, node4;
 
@@ -272,6 +270,9 @@ int main(int argc, const char *argv[])
 	node4.next = NULL;
 	chord = get_chord(&node);
 	assert(MAJOR_TRIAD == chord.chord && Bb == chord.tonic && Bb == chord.bass);
+
+	/* we use the TESTING macro to avoid the call to exit(...) during testing */
+	assert(NULL == detect_oom(NULL));
 
 	return 0;
 }
